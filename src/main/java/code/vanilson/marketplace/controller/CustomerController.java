@@ -2,7 +2,7 @@ package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.CustomerDto;
 import code.vanilson.marketplace.model.Customer;
-import code.vanilson.marketplace.service.CustomerServiceImpl;
+import code.vanilson.marketplace.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -24,11 +24,11 @@ import java.util.Optional;
 public class CustomerController {
 
     private static final Logger logger = LogManager.getLogger(CustomerController.class);
-    private final CustomerServiceImpl customerService;
+    private final CustomerService customerService;
 
     public static final String CUSTOMER = "/customers/";
 
-    public CustomerController(CustomerServiceImpl customerService) {
+    public CustomerController(CustomerService customerService) {
         this.customerService = customerService;
     }
 
@@ -76,15 +76,15 @@ public class CustomerController {
             @ApiResponse(responseCode = "400", description = "Invalid customer data")
     })
 
-    @PostMapping("/create")
-    public ResponseEntity<Customer> createCustomer(@Valid @RequestBody Customer customer) {
+    @PostMapping
+    public ResponseEntity<CustomerDto> createCustomer(@Valid @RequestBody CustomerDto customerDto) {
         logger.info("Creating new customer with name: {}, email: {}, address: {}",
-                customer.getName(),
-                customer.getEmail(),
-                customer.getAddress());
+                customerDto.getName(),
+                customerDto.getEmail(),
+                customerDto.getAddress());
 
         // Create a new customer
-        Customer newCustomer = customerService.saveCustomer(customer);
+        CustomerDto newCustomer = customerService.saveCustomer(customerDto);
 
         try {
             // Build a created response
@@ -110,11 +110,11 @@ public class CustomerController {
             @ApiResponse(responseCode = "400", description = "Invalid customer data"),
             @ApiResponse(responseCode = "404", description = "Customer not found")
     })
-    @PutMapping("/update/{id}")
-    public ResponseEntity<Customer> updateCustomer(@Valid @RequestBody Customer customer,
+    @PutMapping("/{id}")
+    public ResponseEntity<CustomerDto> updateCustomer(@Valid @RequestBody CustomerDto customerDto,
                                                    @PathVariable Long id) {
-        Customer customers = customerService.updateCustomer(id, customer);
-        return ResponseEntity.ok().body(customers);
+        CustomerDto updatedCustomer = customerService.updateCustomer(id, customerDto);
+        return ResponseEntity.ok().body(updatedCustomer);
     }
 
     /**
@@ -126,7 +126,7 @@ public class CustomerController {
      * 404 Not Found if a customer with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     @Operation(summary = "Delete a customer", description = "Deletes the customer with the specified ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully deleted the customer"),

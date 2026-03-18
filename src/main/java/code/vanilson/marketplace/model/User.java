@@ -1,31 +1,66 @@
 package code.vanilson.marketplace.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotEmpty;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
-//@Entity
-//@Table(name = "tb_users")
-//@NoArgsConstructor
-//@AllArgsConstructor
-//@ToString
-//@Data
-//@Builder
-//public class User {
-//
-//    @Id
-//    @GeneratedValue
-//    private Integer id;
-//    private String firstName;
-//    private String lastName;
-//    @Column(unique = true)
-//    private String username;
-//    @Column(unique = true)
-//    @Email(message = "Email is not valid", regexp = "^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$")
-//    @NotEmpty(message = "Email cannot be empty")
-//    private String email;
-//    private String password;
-//    @Enumerated(EnumType.STRING)
-//    private ROLE roles;
-//}
+import java.util.Collection;
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "tb_users")
+public class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    private ROLE role;
+
+    private String status;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return role.getAuthorities();
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return "ACTIVE".equalsIgnoreCase(status);
+    }
+}

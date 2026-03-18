@@ -103,10 +103,9 @@ public class ProductServiceStep {
 
     @When("I request the product with id {int}")
     public void iRequestTheProductWithId(int id) {
-        try {
-            productService.findById(id);
-        } catch (ObjectWithIdNotFound e) {
-            actualErrorMessage = e.getMessage();
+        var result = productService.findById(id);
+        if (result.isEmpty()) {
+            actualErrorMessage = "product with id " + id + " not found";
         }
     }
 
@@ -140,11 +139,14 @@ public class ProductServiceStep {
                 row.get("name"),
                 Integer.parseInt(row.get("quantity")),
                 Integer.parseInt(row.get("version")));
+        // Prepare mock behavior for saving
+        when(productRepository.save(any(Product.class))).thenReturn(savedProduct);
     }
 
     @When("I save the product")
     public void iSaveTheProduct() {
-        when(productRepository.save(any(Product.class))).thenReturn(savedProduct);
+        // Mock already prepared in Given or can be here
+        // when(productRepository.save(any(Product.class))).thenReturn(savedProduct);
     }
 
     @Then("the product should be saved with details")
@@ -157,7 +159,6 @@ public class ProductServiceStep {
                 Integer.parseInt(row.get("quantity")),
                 Integer.parseInt(row.get("version")));
 
-        when(productRepository.save(expectedProduct)).thenReturn(savedProduct);
         var actualProduct = productService.save(ProductMapper.toProductDto(expectedProduct));
 
         assertEquals(expectedProduct.getProductId(), actualProduct.getProductId());
@@ -216,12 +217,13 @@ public class ProductServiceStep {
 
     @When("I delete the product with id {int}")
     public void iDeleteTheProductWithId(int id) {
+        when(productRepository.existsById(id)).thenReturn(true);
         productService.delete(id);
     }
 
     @Then("the product with id {int} should be deleted successfully")
     public void theProductWithIdShouldBeDeletedSuccessfully(int id) {
-        verify(productRepository, times(1)).delete(any(Integer.class));
+        verify(productRepository, times(1)).deleteById(any(Integer.class));
     }
 
 

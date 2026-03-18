@@ -25,18 +25,18 @@ public interface CustomerService {
     /**
      * Updates the specifiedCustomer, identified by its id.
      *
-     * @param customer The customer to update.
-     * @return True if the update succeeded, otherwise false.
+     * @param customerDto The customer to update.
+     * @return The updated Customer.
      */
-    Customer updateCustomer(long id, Customer customer);
+    CustomerDto updateCustomer(long id, CustomerDto customerDto);
 
     /**
      * Saves the specified customer to the database.
      *
-     * @param customer The customer to save to the database.
+     * @param customerDto The customer to save to the database.
      * @return The savedCustomer.
      */
-    Customer saveCustomer(Customer customer);
+    CustomerDto saveCustomer(CustomerDto customerDto);
 
     /**
      * Deletes the customer with the specified id.

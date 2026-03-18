@@ -1,6 +1,11 @@
 package code.vanilson.marketplace.controller;
 
+import code.vanilson.marketplace.config.JwtAuthenticationFilter;
+import code.vanilson.marketplace.config.JwtService;
+import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
+import code.vanilson.marketplace.mapper.CustomerMapper;
+import code.vanilson.marketplace.mapper.OrderMapper;
 import code.vanilson.marketplace.model.Customer;
 import code.vanilson.marketplace.model.Order;
 import code.vanilson.marketplace.service.OrderServiceImpl;
@@ -11,9 +16,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -26,7 +34,8 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(OrderController.class)
+@WebMvcTest(controllers = OrderController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class OrderControllerTest {
 
     @Autowired
@@ -34,6 +43,15 @@ class OrderControllerTest {
 
     @MockBean
     private OrderServiceImpl orderService;
+
+    @MockBean
+    JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockBean
+    AuthenticationProvider authenticationProvider;
+    @MockBean
+    LogoutHandler logoutHandler;
+    @MockBean
+    JwtService jwtService;
     /**
      * LocalDateTime for testing purposes.
      */
@@ -59,8 +77,8 @@ class OrderControllerTest {
     @Test
     @DisplayName("Get All Orders")
     void testGetOrders() throws Exception {
-        when(orderService.findAllOrders()).thenReturn(
-                List.of(new Order(1L, LOCAL_DATE_TIME, customer, new HashSet<>())));
+        OrderDto orderDto = OrderMapper.toOrderDto(new Order(1L, LOCAL_DATE_TIME, customer, new HashSet<>()));
+        when(orderService.findAllOrders()).thenReturn(List.of(orderDto));
 
         mockMvc.perform(get("/api/orders"))
                 .andExpect(status().isOk())
@@ -99,7 +117,7 @@ class OrderControllerTest {
     @DisplayName("Get Order by ID - Success")
     void testGetOrderByIdSuccess() throws Exception {
         Long orderId = 1L;
-        Order order = new Order(1L, LOCAL_DATE_TIME, customer, new HashSet<>());
+        OrderDto order = OrderMapper.toOrderDto(new Order(1L, LOCAL_DATE_TIME, customer, new HashSet<>()));
         // Mocking the behavior of orderService.findOrderById() to return the order
         when(orderService.findOrderById(orderId)).thenReturn(Optional.of(order));
         // Performing a GET request to retrieve the order by ID
@@ -141,19 +159,19 @@ class OrderControllerTest {
     @DisplayName("Create a new Order")
     void testCreateOrder() throws Exception {
         // Create a sample Order object
-        Order order = new Order(LocalDateTime.now(), customer, new HashSet<>());
+        OrderDto orderDto = OrderMapper.toOrderDto(new Order(LocalDateTime.now(), customer, new HashSet<>()));
 
         // Mock the service response when saving the order
-        when(orderService.saveOrder(any(Order.class))).thenAnswer(invocation -> {
-            Order savedOrder = invocation.getArgument(0);
+        when(orderService.saveOrder(any(OrderDto.class))).thenAnswer(invocation -> {
+            OrderDto savedOrder = invocation.getArgument(0);
             savedOrder.setOrderId(1L); // Simulate saving and setting the orderId
             return savedOrder;
         });
 
         // Perform the POST request
-        mockMvc.perform(post("/api/orders/create")
+        mockMvc.perform(post("/api/orders")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(asJsonString(order)))
+                        .content(asJsonString(orderDto)))
                 .andExpect(status().isCreated()) // Expect HTTP 201 Created
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON)) // Expect JSON response
                 .andExpect(jsonPath("$.orderId").exists()); // Expect orderId field in the response JSON
@@ -172,7 +190,7 @@ class OrderControllerTest {
         // Mocking the behavior of orderService.findOrderById() to return an empty Optional
         when(orderService.findOrderById(orderId)).thenReturn(Optional.empty());
         // Performing a DELETE request to delete the order
-        mockMvc.perform(delete("/api/orders/delete/{id}", orderId))
+        mockMvc.perform(delete("/api/orders/{id}", orderId))
                 .andExpect(status().isNotFound());
     }
 
@@ -184,13 +202,12 @@ class OrderControllerTest {
     @Test
     @DisplayName("Delete Order - Internal Server Error")
     void testDeleteOrderInternalServerError() throws Exception {
-        Order order = new Order();
+        OrderDto order = OrderDto.builder().orderId(123L).build();
         Long orderId = 123L;
-        order.setOrderId(orderId);
         when(orderService.findOrderById(orderId)).thenReturn(Optional.of(order));
         when(orderService.deleteOrderById(orderId)).thenReturn(false);
 
-        mockMvc.perform(delete("/api/orders/delete/{id}", orderId))
+        mockMvc.perform(delete("/api/orders/{id}", orderId))
                 .andExpect(status().isInternalServerError()); // Expect 500 Internal Server Error
     }
 

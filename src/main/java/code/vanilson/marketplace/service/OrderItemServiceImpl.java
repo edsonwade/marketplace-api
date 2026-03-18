@@ -1,7 +1,9 @@
 package code.vanilson.marketplace.service;
 
+import code.vanilson.marketplace.dto.OrderItemDto;
 import code.vanilson.marketplace.exception.IllegalRequestException;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
+import code.vanilson.marketplace.mapper.OrderMapper;
 import code.vanilson.marketplace.model.OrderItem;
 import code.vanilson.marketplace.repository.OrderItemRepository;
 import jakarta.transaction.Transactional;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderItemServiceImpl implements OrderItemService {
@@ -26,77 +29,35 @@ public class OrderItemServiceImpl implements OrderItemService {
     }
 
     @Override
-    public List<OrderItem> findAllOrderItems() {
+    public List<OrderItemDto> findAllOrderItems() {
         logger.info("All orderItems");
-        return orderItemRepository.findAll();
+        return orderItemRepository.findAll().stream()
+                .map(OrderMapper::toOrderItemDto)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public Optional<OrderItem> findOrderItemById(Long id) {
+    public Optional<OrderItemDto> findOrderItemById(Long id) {
         Optional<OrderItem> orderItem = orderItemRepository.findById(id);
         if (orderItem.isEmpty()) {
             throw new ObjectWithIdNotFound(String.format("orderItem with id %d not found", id));
         }
-        logger.info("OrderItem with id:{}", orderItem.get() + "found");
-        return orderItem;
+        logger.info("OrderItem with id:{} found", id);
+        return orderItem.map(OrderMapper::toOrderItemDto);
     }
 
     @Override
     @Transactional
-    public OrderItem saveOrderItem(OrderItem orderItem) {
-        if (Objects.isNull(orderItem)) {
-            logger.error("The 'orderItem' object must not be:{}", orderItem);
+    public OrderItemDto saveOrderItem(OrderItemDto orderItemDto) {
+        if (Objects.isNull(orderItemDto)) {
+            logger.error(THE_ORDER_ITEM_OBJECT_MUST_NOT_BE_NULL);
             throw new IllegalRequestException(THE_ORDER_ITEM_OBJECT_MUST_NOT_BE_NULL);
         }
-        logger.info("OrderItem saved with success:{}", orderItem);
-        return orderItemRepository.save(orderItem);
+        OrderItem orderItem = OrderMapper.swallowOrderItem(orderItemDto);
+        OrderItem savedOrderItem = orderItemRepository.save(orderItem);
+        logger.info("OrderItem saved with success:{}", savedOrderItem);
+        return OrderMapper.toOrderItemDto(savedOrderItem);
     }
-
-//    @Override
-//    @Transactional
-//    public OrderItem updateOrderItem(long id, OrderItem updatedOrder) {
-//        if (Objects.isNull(updatedOrder)) {
-//            logger.error(THE_ORDER_OBJECT_MUST_NOT_BE_NULL);
-//            throw new IllegalRequestException(THE_ORDER_OBJECT_MUST_NOT_BE_NULL);
-//        }
-//        Optional<OrderItem> optionalOrder = orderItemRepository.findById(id);
-//        if (optionalOrder.isEmpty()) {
-//            logger.error("Order with id {} not found.", id);
-//            throw new ObjectWithIdNotFound("Order with id " + id + " not found.");
-//        }
-//
-//        var existingOrder = optionalOrder.get();
-//
-//        if (updatedOrder.getLocalDateTime() == null || updatedOrder.getCustomer() == null ||
-//                updatedOrder.getOrderItems() == null) {
-//            logger.error("Updating to null values for 'localDateTime', 'customer', or 'orderItems' is not allowed.");
-//            throw new IllegalRequestException(
-//                    "Updating to null values for 'localDateTime', 'customer', or 'orderItems' is not allowed.");
-//        }
-//
-//        // Update existing Order properties
-//        existingOrder.setLocalDateTime(updatedOrder.getLocalDateTime());
-//        existingOrder.setCustomer(updatedOrder.getCustomer());
-//
-//        // Clear the existing OrderItems
-//        existingOrder.getOrderItems().clear();
-//
-//        // Update existing OrderItems
-//        Set<OrderItem> updatedOrderItems = updatedOrder.getOrderItems();
-//        for (OrderItem updatedItem : updatedOrderItems) {
-//            // Set the back reference to the existing Order
-//            updatedItem.setOrder(existingOrder);
-//            existingOrder.getOrderItems().add(updatedItem);
-//        }
-//
-//        // Save the updated Order with updated OrderItems
-//        Order savedOrder = orderItemRepository.save(existingOrder);
-//
-//        // Log the updated Order
-//        logger.info("Order updated with success: {}", savedOrder);
-//
-//        return savedOrder;
-//    }
 
     @Override
     @Transactional

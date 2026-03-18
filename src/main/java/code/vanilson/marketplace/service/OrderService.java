@@ -1,5 +1,6 @@
 package code.vanilson.marketplace.service;
 
+import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.model.Order;
 
 import java.util.List;
@@ -12,30 +13,31 @@ public interface OrderService {
      * @param id ID of the order to retrieve.
      * @return The requested order if found.
      */
-    Optional<Order> findOrderById(Long id);
+    Optional<OrderDto> findOrderById(Long id);
 
     /**
      * Returns all orders in the database.
      *
      * @return All orders in the database.
      */
-    List<Order> findAllOrders();
+    List<OrderDto> findAllOrders();
 
     /**
      * Updates the specified order, identified by its id.
      *
-     * @param order The order to update.
-     * @return True if the update succeeded, otherwise false.
+     * @param id    The id of the order to update.
+     * @param orderDto The order to update.
+     * @return The updated order.
      */
-    Order updateOrder(long id, Order order);
+    OrderDto updateOrder(long id, OrderDto orderDto);
 
     /**
      * Saves the specified order to the database.
      *
-     * @param order The order to save to the database.
+     * @param orderDto The order to save to the database.
      * @return The saved order.
      */
-    Order saveOrder(Order order);
+    OrderDto saveOrder(OrderDto orderDto);
 
     /**
      * Deletes the order with the specified id.

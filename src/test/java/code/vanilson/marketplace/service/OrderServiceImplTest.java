@@ -1,7 +1,9 @@
 package code.vanilson.marketplace.service;
 
+import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.exception.IllegalRequestException;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
+import code.vanilson.marketplace.mapper.OrderMapper;
 import code.vanilson.marketplace.model.Customer;
 import code.vanilson.marketplace.model.Order;
 import code.vanilson.marketplace.model.OrderItem;
@@ -69,7 +71,7 @@ class OrderServiceImplTest {
         var currentActual = currentInstance.findAllOrders();
 
         //Asserts
-        assertEquals(orders, currentActual);
+        assertEquals(OrderMapper.toOrderDtoList(orders), currentActual);
         assertFalse(currentActual.isEmpty());
         assertNotNull(currentActual);
         //verify
@@ -80,7 +82,7 @@ class OrderServiceImplTest {
     @DisplayName("Get Order by id - Success")
     void testGetOrderByIdSuccess() {
         when(orderRepositoryMock.findById(1L)).thenReturn(Optional.of(order));
-        assertSame(currentInstance.findOrderById(1L).get(), order, "Orders should be the same");
+        assertEquals(currentInstance.findOrderById(1L).get(), OrderMapper.toOrderDto(order), "Orders should be the same");
         assertTrue(currentInstance.findOrderById(1L).isPresent(), "Order was  found");
         assertFalse(currentInstance.findOrderById(1L).isEmpty());
         assertNotEquals(234L, currentInstance.findOrderById(1L)
@@ -102,18 +104,17 @@ class OrderServiceImplTest {
     @DisplayName("create a new Order - Success")
     void testCreateNewOrderSuccess() {
         Order mockOrder = new Order(123L, LocalDateTime.now().plusDays(1), customer, new HashSet<>());
-        when(orderRepositoryMock.save(any())).thenReturn(mockOrder);
-        var actualCurrent = currentInstance.saveOrder(mockOrder);
+        when(orderRepositoryMock.save(any(Order.class))).thenReturn(mockOrder);
+        var actualCurrent = currentInstance.saveOrder(OrderMapper.toOrderDto(mockOrder));
         //asserts
-        assertEquals(mockOrder, actualCurrent);
-        assertEquals(123L, actualCurrent.getOrderId().intValue());
-        verify(orderRepositoryMock, atLeastOnce()).save(mockOrder);
+        assertEquals(OrderMapper.toOrderDto(mockOrder), actualCurrent);
+        assertEquals(123L, actualCurrent.getOrderId().longValue());
+        verify(orderRepositoryMock, atLeastOnce()).save(any(Order.class));
     }
 
     @Test
     @DisplayName("Create Order - Not succeed")
     void testCreateOrderThrowExceptionWhenIsOrderIsNull() {
-        when(orderRepositoryMock.save(null)).thenThrow(IllegalRequestException.class);
         assertThrows(IllegalRequestException.class, () -> currentInstance.saveOrder(null));
     }
 
@@ -125,12 +126,12 @@ class OrderServiceImplTest {
 
         when(orderRepositoryMock.findById(1L)).thenReturn(Optional.of(existingOrder));
 
-        when(orderRepositoryMock.save(existingOrder)).thenReturn(updatedOrder);
+        when(orderRepositoryMock.save(any(Order.class))).thenReturn(updatedOrder);
 
-        Order result = currentInstance.updateOrder(1L, updatedOrder);
+        var result = currentInstance.updateOrder(1L, OrderMapper.toOrderDto(updatedOrder));
 
         // Verify that the expected order was returned
-        assertEquals(updatedOrder, result);
+        assertEquals(OrderMapper.toOrderDto(updatedOrder), result);
     }
 
     @Test
@@ -140,7 +141,7 @@ class OrderServiceImplTest {
 
         when(orderRepositoryMock.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.updateOrder(1L, updatedOrder));
+        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.updateOrder(1L, OrderMapper.toOrderDto(updatedOrder)));
     }
 
     @Test
@@ -152,9 +153,10 @@ class OrderServiceImplTest {
     @Test
     @DisplayName("Update Order - Null Values in Input")
     void testUpdateOrderNullValuesInInput() {
-        Order updatedOrder = new Order(1L, LocalDateTime.now(), customer, new HashSet<>());
-        when(orderRepositoryMock.findById(1L)).thenReturn(Optional.of(new Order()));
-        assertThrows(NullPointerException.class, () -> currentInstance.updateOrder(1L, updatedOrder));
+        Order existingOrder = new Order(1L, LocalDateTime.now(), customer, new HashSet<>());
+        Order updatedOrderWithNulls = new Order(1L, null, null, null);
+        when(orderRepositoryMock.findById(1L)).thenReturn(Optional.of(existingOrder));
+        assertThrows(IllegalRequestException.class, () -> currentInstance.updateOrder(1L, OrderMapper.toOrderDto(updatedOrderWithNulls)));
     }
 
     @Test
@@ -162,7 +164,7 @@ class OrderServiceImplTest {
     void testDeleteOrderWithSuccess() {
         when(orderRepositoryMock.findById(1L))
                 .thenReturn(Optional.of(order));
-        var current = currentInstance.deleteOrderById(1);
+        var current = currentInstance.deleteOrderById(1L);
         assertTrue(current);
         verify(orderRepositoryMock, times(1))
                 .delete(order);

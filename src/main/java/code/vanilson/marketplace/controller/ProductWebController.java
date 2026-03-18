@@ -2,7 +2,7 @@ package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.ProductDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
-import code.vanilson.marketplace.service.ProductServiceImpl;
+import code.vanilson.marketplace.service.ProductService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +14,9 @@ import java.util.Optional;
 public class ProductWebController {
 
     public static final String REDIRECT_PRODUCTS = "redirect:/products";
-    private final ProductServiceImpl productService;
+    private final ProductService productService;
 
-    public ProductWebController(ProductServiceImpl productService) {
+    public ProductWebController(ProductService productService) {
         this.productService = productService;
     }
 

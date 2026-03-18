@@ -1,16 +1,20 @@
 package code.vanilson.marketplace.controller;
 
+import code.vanilson.marketplace.config.JwtAuthenticationFilter;
+import code.vanilson.marketplace.config.JwtService;
 import code.vanilson.marketplace.dto.CustomerDto;
-import code.vanilson.marketplace.model.Customer;
 import code.vanilson.marketplace.service.CustomerServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
@@ -20,7 +24,8 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(CustomerController.class)
+@WebMvcTest(controllers = CustomerController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class CustomerControllerTest {
 
     @Autowired
@@ -28,6 +33,15 @@ class CustomerControllerTest {
 
     @MockBean
     private CustomerServiceImpl customerService;
+
+    @MockBean
+    JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockBean
+    AuthenticationProvider authenticationProvider;
+    @MockBean
+    LogoutHandler logoutHandler;
+    @MockBean
+    JwtService jwtService;
 
     @BeforeEach
     void setUp() {
@@ -66,12 +80,12 @@ class CustomerControllerTest {
     @Test
     @DisplayName("Create Customer")
     void testCreateCustomer() throws Exception {
-        Customer newCustomer = new Customer(null, "test", "test@example.com", "test 1");
+        CustomerDto newCustomer = new CustomerDto(1L, "test", "test@example.com", "test 1");
 
         // Mock the service to return the created customer
-        when(customerService.saveCustomer(any(Customer.class))).thenReturn(newCustomer);
+        when(customerService.saveCustomer(any(CustomerDto.class))).thenReturn(newCustomer);
 
-        mockMvc.perform(post("/api/customers/create")
+        mockMvc.perform(post("/api/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"New Customer\",\"email\":\"new@example.com\",\"address\":\"test 1\"}"))
                 .andExpect(status().isCreated())
@@ -85,12 +99,12 @@ class CustomerControllerTest {
     @DisplayName("Update Customer")
     void testUpdateCustomer() throws Exception {
         Long customerId = 1L;
-        Customer updatedCustomer = new Customer(customerId, "Updated Name", "updated@example.com", "Updated Address");
+        CustomerDto updatedCustomer = new CustomerDto(customerId, "Updated Name", "updated@example.com", "Updated Address");
 
         // Mock the service to return the updated customer
-        when(customerService.updateCustomer(eq(customerId), any(Customer.class))).thenReturn(updatedCustomer);
+        when(customerService.updateCustomer(eq(customerId), any(CustomerDto.class))).thenReturn(updatedCustomer);
 
-        mockMvc.perform(put("/api/customers/update/{id}", customerId)
+        mockMvc.perform(put("/api/customers/{id}", customerId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
                                 "{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
@@ -106,7 +120,7 @@ class CustomerControllerTest {
                 .thenReturn(Optional.of(new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1")));
         when(customerService.deleteCustomer(customerId)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/customers/delete/{id}", customerId))
+        mockMvc.perform(delete("/api/customers/{id}", customerId))
                 .andExpect(status().isOk());
     }
 
@@ -116,7 +130,7 @@ class CustomerControllerTest {
         Long customerId = 1L;
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.empty());
 
-        mockMvc.perform(delete("/api/customers/delete/{id}", customerId))
+        mockMvc.perform(delete("/api/customers/{id}", customerId))
                 .andExpect(status().isNotFound());
     }
 
@@ -129,7 +143,7 @@ class CustomerControllerTest {
                 .thenReturn(Optional.of(new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1")));
         when(customerService.deleteCustomer(customerId)).thenReturn(false);
 
-        mockMvc.perform(delete("/api/customers/delete/{id}", customerId))
+        mockMvc.perform(delete("/api/customers/{id}", customerId))
                 .andExpect(status().isInternalServerError());
     }
 

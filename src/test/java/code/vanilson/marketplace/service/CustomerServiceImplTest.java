@@ -96,19 +96,19 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("create a new Customer - Success")
     void testCreateNewCustomerSuccess() {
+        CustomerDto customerToSave = new CustomerDto(123L, "test01", "testo1@teste.test", "test 4");
         Customer mockCustomer = new Customer(123L, "test01", "testo1@teste.test", "test 4");
-        when(customerRepositoryMock.save(any())).thenReturn(mockCustomer);
-        var actualCurrent = currentInstance.saveCustomer(mockCustomer);
+        when(customerRepositoryMock.save(any(Customer.class))).thenReturn(mockCustomer);
+        var actualCurrent = currentInstance.saveCustomer(customerToSave);
         //asserts
-        assertEquals(mockCustomer, actualCurrent);
-        assertEquals(123L, actualCurrent.getCustomerId().intValue());
-        verify(customerRepositoryMock, atLeastOnce()).save(mockCustomer);
+        assertEquals(customerToSave, actualCurrent);
+        assertEquals(123L, actualCurrent.getCustomerId().longValue());
+        verify(customerRepositoryMock, atLeastOnce()).save(any(Customer.class));
     }
 
     @Test
     @DisplayName("Create Customer - Not succeed")
     void testCreateCustomerThrowExceptionWhenIsCustomerIsNull() {
-        when(customerRepositoryMock.save(null)).thenThrow(IllegalRequestException.class);
         assertThrows(IllegalRequestException.class, () -> currentInstance.saveCustomer(null));
     }
 
@@ -117,25 +117,25 @@ class CustomerServiceImplTest {
     void testUpdateCustomerSuccess() {
         Customer existingCustomer = new Customer(1L, "John Doe", "john@example.com", "Address 1");
         Customer updatedCustomer = new Customer(1L, "Updated Name", "updated@example.com", "Updated Address");
+        CustomerDto updateDto = new CustomerDto(1L, "Updated Name", "updated@example.com", "Updated Address");
 
         when(customerRepositoryMock.findById(1L)).thenReturn(Optional.of(existingCustomer));
+        when(customerRepositoryMock.save(any(Customer.class))).thenReturn(updatedCustomer);
 
-        when(customerRepositoryMock.save(existingCustomer)).thenReturn(updatedCustomer);
-
-        Customer result = currentInstance.updateCustomer(1L, updatedCustomer);
+        CustomerDto result = currentInstance.updateCustomer(1L, updateDto);
 
         // Verify that the expected customer was returned
-        assertEquals(updatedCustomer, result);
+        assertEquals(updateDto, result);
     }
 
     @Test
     @DisplayName("Update Customer - Customer Not Found")
     void testUpdateCustomerCustomerNotFound() {
-        Customer updatedCustomer = new Customer(1L, "Updated Name", "updated@example.com", "Updated Address");
+        CustomerDto updateDto = new CustomerDto(1L, "Updated Name", "updated@example.com", "Updated Address");
 
         when(customerRepositoryMock.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.updateCustomer(1L, updatedCustomer));
+        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.updateCustomer(1L, updateDto));
     }
 
     @Test
@@ -147,9 +147,9 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("Update Customer - Null Values in Input")
     void testUpdateCustomerNullValuesInInput() {
-        Customer updatedCustomer = new Customer(1L, null, null, null);
+        CustomerDto updateDto = new CustomerDto(1L, null, null, null);
         when(customerRepositoryMock.findById(1L)).thenReturn(Optional.of(new Customer()));
-        assertThrows(IllegalRequestException.class, () -> currentInstance.updateCustomer(1L, updatedCustomer));
+        assertThrows(IllegalRequestException.class, () -> currentInstance.updateCustomer(1L, updateDto));
     }
 
     @Test
@@ -157,7 +157,7 @@ class CustomerServiceImplTest {
     void testDeleteCustomerWithSuccess() {
         when(customerRepositoryMock.findById(1L))
                 .thenReturn(Optional.of(customer));
-        var current = currentInstance.deleteCustomer(1);
+        var current = currentInstance.deleteCustomer(1L);
         assertTrue(current);
         verify(customerRepositoryMock, times(1))
                 .delete(customer);
@@ -182,7 +182,7 @@ class CustomerServiceImplTest {
         when(customerRepositoryMock.findById(customerId)).thenReturn(Optional.of(customer));
 
         // When
-        boolean result = currentInstance.deleteCustomers(customerId);
+        boolean result = currentInstance.deleteCustomer(customerId);
 
         // Then
         assertTrue(result, "Customer deletion should be successful");
@@ -197,7 +197,7 @@ class CustomerServiceImplTest {
         when(customerRepositoryMock.findById(customerId)).thenReturn(Optional.empty());
 
         // When
-        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.deleteCustomers(customerId),
+        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.deleteCustomer(customerId),
                 "Exception should be thrown when customer is not found");
 
         // Then

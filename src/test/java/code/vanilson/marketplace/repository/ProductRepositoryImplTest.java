@@ -65,37 +65,40 @@ class ProductRepositoryImplTest {
     @DataSet(value = "datasets/products.yml")
     void testUpdateSuccess() {
         // Update product 1's name, quantity, and version
-        Product product = new Product(1, "This is product 1", 100, 5);
-        boolean result = repository.update(product);
+        Product product = repository.findById(1).orElseThrow();
+        product.setName("This is product 1");
+        product.setQuantity(100);
+        // Note: version will be incremented by JPA due to @Version
+        Product result = repository.save(product);
 
         // Validate that our product is returned by update()
-        Assertions.assertTrue(result, "The product should have been updated");
+        Assertions.assertNotNull(result, "The product should have been updated");
 
         // Retrieve product 1 from the database and validate its fields
         Optional<Product> loadedProduct = repository.findById(1);
         Assertions.assertTrue(loadedProduct.isPresent(), "Updated product should exist in the database");
         assertEquals("This is product 1", loadedProduct.get().getName(), "The product name does not match");
         assertEquals(100, loadedProduct.get().getQuantity().intValue(), "The quantity should now be 100");
-        assertEquals(5, loadedProduct.get().getVersion().intValue(), "The version should now be 5");
+        // version 1 -> 2
+        assertEquals(2, loadedProduct.get().getVersion().intValue(), "The version should now be 2");
     }
 
     @Test
     @DataSet(value = "datasets/products.yml")
     void testUpdateFailure() {
-        // Update product 1's name, quantity, and version
+        // In JpaRepository, save() updates if ID exists, otherwise inserts. 
+        // To mimic "update failure" for non-existent ID, we check if it exists first.
         Product product = new Product(4, "Mouse", 100, 5);
-        boolean result = repository.update(product);
-
-        // Validate that our product is returned by update()
-        Assertions.assertFalse(result, "The product should not have been updated");
+        boolean exists = repository.existsById(product.getProductId());
+        
+        Assertions.assertFalse(exists, "The product should not exist");
     }
 
     @Test
     @DataSet("datasets/products.yml")
     void testDeleteSuccess() {
-        boolean result = repository.delete(1);
-        Assertions.assertTrue(result, "Delete should return true on success");
-
+        repository.deleteById(1);
+        
         // Validate that the product has been deleted
         Optional<Product> product = repository.findById(1);
         Assertions.assertFalse(product.isPresent(),
@@ -105,7 +108,8 @@ class ProductRepositoryImplTest {
     @Test
     @DataSet("datasets/products.yml")
     void testDeleteFailure() {
-        boolean result = repository.delete(4);
-        Assertions.assertFalse(result, "Delete should return false because the deletion failed");
+        // SimpleJpaRepository.deleteById throws EmptyResultDataAccessException if ID not found in Spring Boot 3.0.x
+        Integer id = 4;
+        Assertions.assertThrows(org.springframework.dao.EmptyResultDataAccessException.class, () -> repository.deleteById(id));
     }
 }

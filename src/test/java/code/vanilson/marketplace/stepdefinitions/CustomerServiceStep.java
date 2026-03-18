@@ -38,7 +38,7 @@ public class CustomerServiceStep {
     @InjectMocks
     private final CustomerServiceImpl customerService = new CustomerServiceImpl(customerRepository);
 
-    Customer savedCustomer;
+    CustomerDto savedCustomer;
 
     private List<Customer> customers;
     private Exception exception;
@@ -47,7 +47,7 @@ public class CustomerServiceStep {
     public void setUp() {
         MockitoAnnotations.openMocks(this); // Initialize mocks
         customers = new ArrayList<>();
-        savedCustomer = new Customer(123L, "test01", "testo1@teste.test", "test 4");
+        savedCustomer = new CustomerDto(123L, "test01", "testo1@teste.test", "test 4");
         exception = null;
     }
 
@@ -99,7 +99,7 @@ public class CustomerServiceStep {
         List<Map<String, String>> rows = dataTable.asMaps();
         Map<String, String> row = rows.get(0);
         savedCustomer =
-                new Customer(Long.parseLong(row.get("id")), row.get("name"), row.get("email"), row.get("address"));
+                new CustomerDto(Long.parseLong(row.get("id")), row.get("name"), row.get("email"), row.get("address"));
     }
 
     /**
@@ -149,7 +149,7 @@ public class CustomerServiceStep {
     public void i_request_the_customer_with_id(Long id) {
         try {
             var customerDto = customerService.findCustomerById(id);
-            savedCustomer = CustomerMapper.toCustomer(customerDto.orElse(null));
+            savedCustomer = customerDto.orElse(null);
         } catch (Exception e) {
             exception = e;
         }
@@ -161,7 +161,7 @@ public class CustomerServiceStep {
     @When("I save the customer")
     public void i_save_the_customer() {
         try {
-            when(customerRepository.save(any(Customer.class))).thenReturn(savedCustomer);
+            when(customerRepository.save(any(Customer.class))).thenReturn(CustomerMapper.toCustomer(savedCustomer));
         } catch (Exception e) {
             exception = e;
         }
@@ -188,7 +188,7 @@ public class CustomerServiceStep {
     @When("I update the customer with id {long} to have details")
     public void i_update_the_customer_with_id_to_have_details(Long id, io.cucumber.datatable.DataTable dataTable) {
         Map<String, String> row = dataTable.asMaps().get(0);
-        Customer updatedCustomer = new Customer(id, row.get("name"), row.get("email"), row.get("address"));
+        CustomerDto updatedCustomer = new CustomerDto(id, row.get("name"), row.get("email"), row.get("address"));
         try {
             savedCustomer = customerService.updateCustomer(id, updatedCustomer);
         } catch (Exception e) {
@@ -206,7 +206,7 @@ public class CustomerServiceStep {
     public void i_try_to_update_the_customer_with_id(Long id) {
         try {
             customerService.updateCustomer(id,
-                    new Customer(id, "Updated Name", "updated@example.com", "Updated Address"));
+                    new CustomerDto(id, "Updated Name", "updated@example.com", "Updated Address"));
         } catch (Exception e) {
             exception = e;
         }
@@ -263,7 +263,7 @@ public class CustomerServiceStep {
     @Then("I should receive the customer with id {long} and details")
     public void i_should_receive_the_customer_with_id_and_details(Long id, DataTable dataTable) {
         Map<String, String> row = dataTable.asMaps().get(0);
-        Customer expectedCustomer = new Customer(id, row.get("name"), row.get("email"), row.get("address"));
+        CustomerDto expectedCustomer = new CustomerDto(id, row.get("name"), row.get("email"), row.get("address"));
         assertEquals(expectedCustomer, savedCustomer);
     }
 
@@ -287,11 +287,11 @@ public class CustomerServiceStep {
     @Then("the customer should be saved with details")
     public void the_customer_should_be_saved_with_details(DataTable dataTable) {
         Map<String, String> row = dataTable.asMaps().get(0);
-        Customer expectedCustomer =
-                new Customer(Long.parseLong(row.get("id")), row.get("name"), row.get("email"), row.get("address"));
-        when(customerRepository.save(expectedCustomer)).thenReturn(savedCustomer);
+        CustomerDto expectedCustomer =
+                new CustomerDto(Long.parseLong(row.get("id")), row.get("name"), row.get("email"), row.get("address"));
+        when(customerRepository.save(any(Customer.class))).thenReturn(CustomerMapper.toCustomer(savedCustomer));
         var actualCurrent = customerService.saveCustomer(expectedCustomer);
-        assertEquals(savedCustomer, expectedCustomer);
+        assertEquals(savedCustomer, actualCurrent);
     }
 
     /**
@@ -302,10 +302,10 @@ public class CustomerServiceStep {
 
     @Then("the customer should be updated to have details")
     public void the_customer_should_be_updated_to_have_details(DataTable dataTable) {
-        savedCustomer = new Customer(123L, "Updated Name", "updated@example.com", "Updated Address");
+        savedCustomer = new CustomerDto(123L, "Updated Name", "updated@example.com", "Updated Address");
         Map<String, String> row = dataTable.asMaps().get(0);
-        Customer expectedCustomer =
-                new Customer(savedCustomer.getCustomerId(), row.get("name"), row.get("email"), row.get("address"));
+        CustomerDto expectedCustomer =
+                new CustomerDto(savedCustomer.getCustomerId(), row.get("name"), row.get("email"), row.get("address"));
         assertEquals(expectedCustomer, savedCustomer);
     }
 

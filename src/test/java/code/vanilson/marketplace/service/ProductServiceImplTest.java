@@ -87,8 +87,9 @@ class ProductServiceImplTest {
     @DisplayName(" product by id - Not Found")
     void testShouldThrowExceptionsWhenTheGivenIdIsNotFound() {
         when(productRepositoryMock.findById(1)).thenReturn(Optional.empty());
-        //assert
-        assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.findById(1));
+        // In the implementation, findById returns Optional.empty() instead of throwing if not found
+        var result = currentInstance.findById(1);
+        assertTrue(result.isEmpty());
     }
 
     @Test
@@ -111,41 +112,40 @@ class ProductServiceImplTest {
     @DisplayName("update product - Success")
     void testShouldUpdateProduct() {
         ProductDto updatedProductDto = new ProductDto(1, "new_keyboard", 20, 1);
-        when(productRepositoryMock.update(any(Product.class))).thenReturn(true);
+        when(productRepositoryMock.findById(1)).thenReturn(Optional.of(product));
+        when(productRepositoryMock.save(any(Product.class))).thenReturn(product);
         boolean updateResult = currentInstance.update(updatedProductDto);
         assertTrue(updateResult, "Update operation should return true");
         assertEquals(1, updatedProductDto.getProductId().intValue(), "Product ID should be 1 after update");
         assertEquals("new_keyboard", updatedProductDto.getName(), "Product name should be 'new_keyboard' after update");
         assertEquals(20, updatedProductDto.getQuantity().intValue(), "Product quantity should be 20 after update");
         assertEquals(1, updatedProductDto.getVersion().intValue(), "Product version should be 1 after update");
-        verify(productRepositoryMock, atLeastOnce()).update(any(Product.class));
+        verify(productRepositoryMock, atLeastOnce()).save(any(Product.class));
     }
 
     @Test
     @DisplayName("delete product - Success")
     void testShouldDeleteProduct() {
         Integer existingProductId = 1;
-        when(productRepositoryMock.findById(existingProductId)).thenReturn(
-                Optional.of(new Product(existingProductId, "keyboard", 10, 1)));
-        when(productRepositoryMock.delete(existingProductId)).thenReturn(true);
+        when(productRepositoryMock.existsById(existingProductId)).thenReturn(true);
         boolean deleteResult = currentInstance.delete(existingProductId);
         assertTrue(deleteResult);
-        verify(productRepositoryMock, times(1)).findById(existingProductId);
-        verify(productRepositoryMock, times(1)).delete(existingProductId);
+        verify(productRepositoryMock, times(1)).existsById(existingProductId);
+        verify(productRepositoryMock, times(1)).deleteById(existingProductId);
     }
 
     @Test
     @DisplayName("Delete product by id - Not Success")
     void testDeleteProductsThrowAnException() {
         Integer nonExistingProductId = 2;
-        when(productRepositoryMock.findById(nonExistingProductId)).thenReturn(Optional.empty());
+        when(productRepositoryMock.existsById(nonExistingProductId)).thenReturn(false);
         ObjectWithIdNotFound exception =
                 assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.delete(nonExistingProductId));
 
         // Asserts
         assertEquals("Product with id 2 not found", exception.getMessage());
 
-        // Verify that findById was called as expected
-        verify(productRepositoryMock, times(1)).findById(nonExistingProductId);
+        // Verify that existsById was called as expected
+        verify(productRepositoryMock, times(1)).existsById(nonExistingProductId);
     }
 }

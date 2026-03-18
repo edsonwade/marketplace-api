@@ -40,7 +40,7 @@ public class CustomerMapper {
         customer.setCustomerId(customerDto.getCustomerId());
         customer.setName(customerDto.getName());
         customer.setEmail(customerDto.getEmail());
-        customer.setAddress(customerDto.getAddress()); // Fix here: Should be customerDto.getAddress()
+        customer.setAddress(customerDto.getAddress());
 
         return customer;
     }

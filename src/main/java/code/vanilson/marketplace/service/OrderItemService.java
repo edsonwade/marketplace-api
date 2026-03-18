@@ -1,5 +1,6 @@
 package code.vanilson.marketplace.service;
 
+import code.vanilson.marketplace.dto.OrderItemDto;
 import code.vanilson.marketplace.model.OrderItem;
 
 import java.util.List;
@@ -12,30 +13,22 @@ public interface OrderItemService {
      * @param id ID of the orderItem to retrieve.
      * @return The requested orderItem if found.
      */
-    Optional<OrderItem> findOrderItemById(Long id);
+    Optional<OrderItemDto> findOrderItemById(Long id);
 
     /**
      * Returns all orderItems in the database.
      *
      * @return All orderItems in the database.
      */
-    List<OrderItem> findAllOrderItems();
-
-    /**
-     * Updates the specified orderItem, identified by its id.
-     *
-     * @param orderItem The orderItem to update.
-     * @return True if the update succeeded, otherwise false.
-     */
-//    OrderItem updateOrderItem(long id, OrderItem orderItem);
+    List<OrderItemDto> findAllOrderItems();
 
     /**
      * Saves the specified orderItem to the database.
      *
-     * @param orderItem The orderItem to save to the database.
+     * @param orderItemDto The orderItem to save to the database.
      * @return The saved orderItem.
      */
-    OrderItem saveOrderItem(OrderItem orderItem);
+    OrderItemDto saveOrderItem(OrderItemDto orderItemDto);
 
     /**
      * Deletes the orderItem with the specified id.

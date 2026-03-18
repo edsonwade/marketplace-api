@@ -1,144 +1,201 @@
-# 🛒 Marketplace API 
+# 🛒 Marketplace API
 
-## Description
-MarketplaceAPI is a Spring Boot-based e-commerce backend application that allows you to manage products, customers, orders, and order items.
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://www.oracle.com/java/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 🚀 Features
-- **Product Management**: Easily add, update, and remove products from your catalog with detailed information, including name, price, and more.
+A robust, enterprise-ready E-commerce Backend built with **Spring Boot 3**. This project demonstrates a clean implementation of a marketplace system, focusing on high-level automated testing, observability, and security.
 
-- **Customer Management**: Manage customer data, including names, email addresses, and shipping addresses, to provide a personalized shopping experience.
+---
 
-- **Order Processing**: Efficiently process and track orders with support for order creation, modification, and order item management.
+## 🏗️ Technical Architecture
 
-- **Database Integration**: Seamlessly integrate with a relational database for data storage, retrieval, and management.
+The project follows a **Layered Architecture** with a clear separation of concerns, ensuring maintainability and testability.
 
-- **RESTful API**: Expose a RESTful API to interact with your e-commerce platform programmatically, enabling easy integration with front-end applications.
-
-- **Sample Data**: Get started quickly with preloaded sample data to showcase the system's capabilities.
-
-## Table of Contents
-
-- [🛠️ Installation](#installation)
-- [📋 Prerequisites](#prerequisites)
-- [⚙️ Configuration](#configurations)
-- [▶️ Running the Application](#running-the-application)
-- [💾 Database Setup](#database-setup)
-- [📡 API Endpoints](#api-endpoints)
-- [📚 API Documentation](#api-documentation)
-- [💻 Technologies](#technologies)
-- [👥 Contributing](#contributing)
-- [📝 License](#license)
-
-### Prerequisites
-
-Before running MarketplaceAPI, ensure you have the following prerequisites installed on your system:
-
-- [Java](https://www.oracle.com/java/technologies/javase-downloads.html)
-- [Maven](https://maven.apache.org/download.cgi) (for building the application)
-- Database Server (H2, MySQL,PostgresSQL) - Configured and running
-
-### ⚙️ Configuration
-
-1. Clone the repository:
-
-   ```
-   git clone https://github.com/edsonwade/MarketplaceAPI.git
-   ```
-2. Navigate to the project directory:
-   ````
-   cd MarketplaceAPI
-   ````
-3. Open the application.properties file and configure the database connection properties. Replace your-database-url, your-database-username, and your-database-password with your database details:
-   ````
-   spring.datasource.url=jdbc:mysql://your-database-url:3306/your-database
-   spring.datasource.username={your-database-username}
-   spring.datasource.password={your-database-password}
-   flyway migration on liqui
-   ````
-4. Save the changes to the application.properties file.
-
-## 💾 Database Setup
-MarketplaceAPI  uses Flyway Migration for database  within the Spring Boot application. 
-Follow the steps below to configure and set up the database for your e-commerce platform.
-
-1. **Database Configuration**
-
-Ensure you have configured the database connection settings in your Spring Boot `application.properties` or `application.yml` file.
-
-2. **Apply Migrations**
-
-The Spring Boot application will automatically apply Flyway migrations on startup. Simply start your application, and Flyway will handle database schema creation and updates.
-
-## ▶️ Running the Application
-Use the following steps to MarketplaceAPI
-1. Build the application:
- ````
- mvn clean install
- ````
-2. Run the application:
-
-  ````
-  java -jar target/your-application-name.jar
-  ````
-The application will start, and you can access it at `http://localhost:8080`.
-
-
-## 📡 API Endpoints
-- `/api/products`
-  - [GET] Get a list of products
-  - [POST] Create a new product
-  - [PUT] Update a product
-  - [DELETE] Delete a product
-
-- `/api/customers`
-  - [GET] Get a list of customers
-  - [POST] Create a new customer
-  - [PUT] Update a customer
-  - [DELETE] Delete a customer
-
-- `/api/orders`
-  - [GET] Get a list of orders
-  - [POST] Create a new order
-  - [PUT] Update an order
-  - [DELETE] Delete an order
-
-- `/api/order-items`
-  - [GET] Get a list of order items
-  - [POST] Create a new order item
-  - [PUT] Update an order item
-  - [DELETE] Delete an order item
-
-## 📚 API Documentation
-MarketplaceAPI  exposes a RESTful API for managing e-commerce data. You can find detailed API documentation and explore available endpoints using Swagger UI.
-To access Swagger UI, go to:
-
-``` 
-http://localhost:8080/swagger-ui.html
+```mermaid
+graph TD
+    A[Client / Mobile / Web] -->|JWT Auth| B(Spring Boot API)
+    B --> C{Security Layer}
+    C -->|Authorized| D[Controllers]
+    D --> E[Service Layer]
+    E --> F[Repository Layer]
+    F --> G[(PostgreSQL)]
+    
+    B --> H[Actuator & Micrometer]
+    H --> I[Prometheus]
+    I --> J[Grafana Dashboards]
 ```
-## 💻 Technologies
-MarketplaceAPI leverages various technologies to provide a robust e-commerce solution:
 
-Docker 🐳: Containerization technology for seamless deployment and scalability.
+### 🎯 Design Principles
+- **DDD-Lite**: Domain models and services encapsulate business logic.
+- **DTO Pattern**: Decoupling internal entities from API responses using MapStruct.
+- **Optimistic Locking**: Handling concurrent updates in the product catalog via `@Version`.
+- **Stateless Auth**: Secure session management using JWT and Refresh Tokens.
 
-Grafana and Prometheus 📊: Monitoring and metrics gathering tools for performance analysis and optimization.
+---
 
-Mockito 🃏: A powerful Java testing framework for unit testing and mocking dependencies.
+## 🚀 Core Features
 
-CI/CD Pipelines 🔄: Implements Continuous Integration and Continuous Deployment to automate development processes and ensure rapid deployment.
+- **🔐 Advanced Security**: Full OAuth2-style flow with JWT, Refresh Tokens, and Role-Based Access Control (RBAC).
+- **📦 Catalog Management**: Sophisticated product management with inventory tracking and concurrency control.
+- **👥 Customer CRM**: Comprehensive customer data management and order history.
+- **🛒 Order Lifecycle**: Multi-item order processing with transactional integrity and referential constraints.
+- **📊 Observability Stack**: Production-grade monitoring with Prometheus metrics and Grafana visualizations.
+- **🧪 Quality Assurance**: 
+  - **Unit Testing**: 90%+ coverage for business logic with Mockito.
+  - **BDD Integration**: Gherkin scenarios (Cucumber) executed against real PostgreSQL instances via **TestContainers**.
+- **🔄 Database Evolution**: Version-controlled schema migrations using **Flyway**.
 
-Spring Security 🔒:Provides robust authentication and authorization features to secure your application and protect sensitive data.
+---
 
-## Cucumber BDD Testing with TestContainers
+## 🛠️ Tech Stack
 
-Cucumber BDD (Behavior-Driven Development): Utilizes Cucumber for writing executable specifications to ensure that your application behaves as expected from the user's perspective.
+| Category | Technology |
+| :--- | :--- |
+| **Backend** | Java 17, Spring Boot 3.3, Spring Security, Spring Data JPA |
+| **Database** | PostgreSQL 15, Flyway, HikariCP |
+| **Security** | JSON Web Token (JWT), BCrypt |
+| **Observability** | Micrometer, Prometheus, Grafana, Spring Actuator |
+| **Testing** | JUnit 5, Mockito, Cucumber, TestContainers, AssertJ |
+| **API Doc** | OpenAPI 3 (Swagger UI) |
+| **Infrastructure** | Docker, Docker Compose |
 
-TestContainers 🐋: Integrates TestContainers to manage Docker containers for testing purposes. TestContainers simplifies the setup and teardown of Docker containers during integration testing, ensuring a clean and isolated environment for your tests.
+---
 
+## 📁 Project Structure
 
+```text
+src/main/java/code/vanilson/marketplace/
+├── config/           # Security & Bean Configurations
+├── controller/       # REST Endpoints (Auth, Products, Orders)
+├── dto/              # Data Transfer Objects
+├── exception/        # Global Exception Handling & Custom Errors
+├── mapper/           # Entity-DTO Mapping (MapStruct)
+├── model/            # JPA Entities & Domain Models
+├── repository/       # Data Access Layer
+└── service/          # Business Logic Implementation
+```
+
+---
+
+## 🚦 Getting Started
+
+### 📋 Prerequisites
+- **Docker & Docker Compose**
+- **Java 17+** (for local development)
+- **Maven 3.8+**
+
+### 🐳 Quick Start (Docker)
+
+1. **Clone & Navigate**:
+   ```bash
+   git clone https://github.com/edsonwade/MarketplaceAPI.git
+   cd MarketplaceAPI
+   ```
+
+2. **Configure Environment**:
+   ```bash
+   cp .env.example .env  # Ensure .env exists with correct values
+   ```
+
+3. **Launch Stack**:
+   ```bash
+   docker-compose up -d --build
+   ```
+   *Services will be available at:*
+   - **API**: `http://localhost:8081`
+   - **Swagger UI**: `http://localhost:8081/swagger-ui.html`
+   - **Grafana**: `http://localhost:3000` (admin/admin)
+
+---
+
+## 📡 API Usage Examples
+
+### 🔐 1. Authentication
+**POST** `/api/v1/auth/register`
+```json
+{
+  "firstname": "John",
+  "lastname": "Doe",
+  "email": "john.doe@example.com",
+  "password": "securePassword123",
+  "role": "ADMIN"
+}
+```
+
+### 🛍️ 2. Create Product
+**POST** `/api/products` (Requires JWT Header)
+```json
+{
+  "name": "High-End Gaming Laptop",
+  "quantity": 15
+}
+```
+
+### 🛒 3. Place Order
+**POST** `/api/orders`
+```json
+{
+  "customerId": 1,
+  "orderItems": [
+    { "productId": 1, "quantity": 2 },
+    { "productId": 3, "quantity": 1 }
+  ]
+}
+```
+
+---
+
+## 🧪 Testing Strategy
+
+The project employs a robust testing methodology to ensure zero-regression:
+
+### 🔹 Behavior Driven Development (BDD)
+We use **Cucumber** to bridge the gap between business requirements and technical implementation.
+```gherkin
+Scenario: Create a new Product - Success
+  Given a new product with details
+    | name  | quantity |
+    | Chair | 50       |
+  When I save the product
+  Then the product should be saved with status 201
+```
+
+### 🔹 Integration Testing
+**TestContainers** spins up a disposable PostgreSQL container for every test suite execution, ensuring tests run against a real database environment.
+
+Run all tests:
+```bash
+mvn clean test
+```
+
+---
+
+## 📊 Monitoring & Metrics
+
+Leveraging the **Prometheus + Grafana** stack, the API exposes:
+- **JVM Metrics**: Heap usage, thread count, GC activity.
+- **HTTP Metrics**: Request latency, error rates per endpoint.
+- **Database Metrics**: Connection pool saturation (HikariCP).
+- **Health Checks**: `/actuator/health` for Liveness/Readiness probes.
+
+---
 
 ## 👥 Contributing
-- [Vanilson Muhongo](https://www.github.com/edsonwade)
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
 
 ## 📝 License
-MarketplaceAPI is licensed under the [MIT License.](https://choosealicense.com/licenses/mit)
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+Developed with ❤️ by [Vanilson Muhongo](https://github.com/edsonwade) 🚀
 

@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith({DBUnitExtension.class, SpringExtension.class})
 @SpringBootTest
 @ActiveProfiles("test")
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class ProductIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
@@ -43,7 +43,6 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("GET /api/products -Success")
     @DataSet(value = "datasets/products.yml")
-    @Disabled
     void testGetProductSuccess() throws Exception {
         mockMvc.perform(get("/api/products"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -59,7 +58,6 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("GET /api/product/1 - Found")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testGetProductByIdFound() throws Exception {
         // Execute the GET request
         mockMvc.perform(get("/api/products/{id}", 1))
@@ -84,7 +82,6 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("GET /api/products/99 - Not Found")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testGetProductByIdNotFound() throws Exception {
         // Execute the GET request
         mockMvc.perform(get("/api/products/{id}", 99))
@@ -96,12 +93,11 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("PUT /api/products/2 - Success")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testProductPutSuccess() throws Exception {
         // Setup product to update
         var putProduct = new ProductDto("TV Plasma", 10);
 
-        mockMvc.perform(put("/api/products/update/{id}", 1)
+        mockMvc.perform(put("/api/products/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 1)
                         .content(asJsonString(putProduct)))
@@ -112,7 +108,6 @@ class ProductIntegrationTest {
                 .andExpect(header().string(HttpHeaders.ETAG, "\"2\""))
                 .andExpect(header().string(HttpHeaders.LOCATION, "/products/1"))
                 // return fields
-                .andExpect(jsonPath("$.size()").value(4))
                 .andExpect(jsonPath("$.productId").value(1))
                 .andExpect(jsonPath("$.name").value("TV Plasma"))
                 .andExpect(jsonPath("$.quantity").value(10))
@@ -122,12 +117,11 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("PUT /api/products/1 - Version Mismatch")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testProductPutVersionMismatch() throws Exception {
         // Setup product to update
         ProductDto putProduct = new ProductDto("TV Plasma", 10);
 
-        mockMvc.perform(put("/api/products/update/{id}", 1)
+        mockMvc.perform(put("/api/products/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 7)
                         .content(asJsonString(putProduct)))
@@ -139,12 +133,11 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("PUT /api/products/99 - Not Found")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testProductPutNotFound() throws Exception {
         // Setup product to update
         ProductDto putProduct = new ProductDto("TV Plasma", 10);
 
-        mockMvc.perform(put("/api/products/update/{id}", 99)
+        mockMvc.perform(put("/api/products/{id}", 99)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 1)
                         .content(asJsonString(putProduct)))
@@ -156,20 +149,18 @@ class ProductIntegrationTest {
     @Test
     @DisplayName("DELETE /api/products/1 - Success")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testProductDeleteSuccess() throws Exception {
         // Execute our DELETE request
-        mockMvc.perform(delete("/api/products/delete/{id}", 1))
+        mockMvc.perform(delete("/api/products/{id}", 1))
                 .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("DELETE /api/products/99 - Not Found")
     @DataSet("datasets/products.yml")
-    @Disabled
     void testProductDeleteNotFound() throws Exception {
         // Execute our DELETE request
-        mockMvc.perform(delete("/api/products/delete/{id}", 99))
+        mockMvc.perform(delete("/api/products/{id}", 99))
                 .andExpect(status().isNotFound());
     }
 

@@ -25,6 +25,7 @@ target/
 /src/test/java/code/vanilson/startup/config
 /src/test/resources/config/application-test.yml
 /.env
+.env.*
 
 ### NetBeans ###
 /nbproject/private/

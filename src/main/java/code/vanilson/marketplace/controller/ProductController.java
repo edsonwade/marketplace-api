@@ -1,7 +1,7 @@
 package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.ProductDto;
-import code.vanilson.marketplace.service.ProductServiceImpl;
+import code.vanilson.marketplace.service.ProductService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
@@ -18,9 +18,9 @@ public class ProductController {
 
     public static final String PRODUCT = "/products/";
     private static final Logger logger = LogManager.getLogger(ProductController.class);
-    private final ProductServiceImpl productService;
+    private final ProductService productService;
 
-    public ProductController(ProductServiceImpl productService) {
+    public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
@@ -63,7 +63,7 @@ public class ProductController {
      * @param product The product to create.
      * @return The created product.
      */
-    @PostMapping("/create")
+    @PostMapping
     public ResponseEntity<ProductDto> createProduct(@RequestBody ProductDto product) {
         logger.info("Creating new product with name: {}, quantity: {}", product.getName(), product.getQuantity());
 
@@ -92,7 +92,7 @@ public class ProductController {
      * CONFLICT if the eTag does not match the version of the product to update
      * INTERNAL_SERVICE_ERROR if there is a problem creating the location URI
      */
-    @PutMapping("/update/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(@RequestBody ProductDto product,
                                            @PathVariable Integer id,
                                            @RequestHeader("If-Match") Integer ifMatch) {
@@ -147,7 +147,7 @@ public class ProductController {
      * 404 Not Found if a product with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable Integer id) {
 
         logger.info("Deleting product with ID {}", id);

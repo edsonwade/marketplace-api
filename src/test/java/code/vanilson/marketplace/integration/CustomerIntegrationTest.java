@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith({DBUnitExtension.class, SpringExtension.class})
 @SpringBootTest
 @ActiveProfiles("test")
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 public class CustomerIntegrationTest {
 
     @Autowired
@@ -78,9 +78,9 @@ public class CustomerIntegrationTest {
 
     @Test
     @DataSet(value = "datasets/customers.yml")
-    @DisplayName("POST /api/customers/create -Success")
+    @DisplayName("POST /api/customers -Success")
     void testCreateCustomer() throws Exception {
-        mockMvc.perform(post("/api/customers/create")
+        mockMvc.perform(post("/api/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"New Customer\",\"email\":\"new@example.com\",\"address\":\"test 1\"}"))
                 .andExpect(status().isCreated())
@@ -93,9 +93,9 @@ public class CustomerIntegrationTest {
 
     @Test
     @DataSet(value = "datasets/customers.yml")
-    @DisplayName("PUT /api/customers/update/{id} -Success")
+    @DisplayName("PUT /api/customers/{id} -Success")
     void testUpdateCustomer() throws Exception {
-        mockMvc.perform(put("/api/customers/update/{id}", 1)
+        mockMvc.perform(put("/api/customers/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
                                 "{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
@@ -108,31 +108,33 @@ public class CustomerIntegrationTest {
 
 
     @Test
-    @DisplayName("PUT /api/customers/update/99 - Bad request")
+    @DisplayName("PUT /api/customers/99 - Not Found")
     @DataSet("datasets/customers.yml")
-    void testUpdateFailedWithBadRequest() throws Exception {
+    void testUpdateFailedWithNotFound() throws Exception {
         // Execute the PUT request
-        mockMvc.perform(put("/api/customers/update/{id}", 99))
+        mockMvc.perform(put("/api/customers/{id}", 99)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
 
-                // Validate that we get a 4OO bad request response
-                .andExpect(status().isBadRequest());
+                // Validate that we get a 404 Not Found response (service throws ObjectWithIdNotFound)
+                .andExpect(status().isNotFound());
     }
 
 
     @Test
-    @DisplayName("Delete /api/customers/delete/1 - Success")
+    @DisplayName("Delete /api/customers/1 - Success")
     @DataSet("datasets/customers.yml")
     void testDeleteCustomer() throws Exception {
-        mockMvc.perform(delete("/api/customers/delete/{id}", 1))
+        mockMvc.perform(delete("/api/customers/{id}", 1))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("Delete /api/customers/delete/99 - Not Found")
+    @DisplayName("Delete /api/customers/99 - Not Found")
     @DataSet("datasets/customers.yml")
     void testDeleteCustomerCustomerNotFound() throws Exception {
 
-        mockMvc.perform(delete("/api/customers/delete/{id}", 99))
+        mockMvc.perform(delete("/api/customers/{id}", 99))
                 .andExpect(status().isNotFound());
     }
 

@@ -1,5 +1,7 @@
 package code.vanilson.marketplace.controller;
 
+import code.vanilson.marketplace.config.JwtAuthenticationFilter;
+import code.vanilson.marketplace.config.JwtService;
 import code.vanilson.marketplace.dto.ProductDto;
 import code.vanilson.marketplace.service.ProductServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,10 +9,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -20,19 +25,28 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(ProductController.class)
+@WebMvcTest(controllers = ProductController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class ProductControllerTest {
 
     @Autowired
     MockMvc mockMvc;
     @MockBean
     ProductServiceImpl productServiceMock;
+    @MockBean
+    JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockBean
+    AuthenticationProvider authenticationProvider;
+    @MockBean
+    LogoutHandler logoutHandler;
+    @MockBean
+    JwtService jwtService;
 
     ProductDto product;
 
     @BeforeEach
     void setUp() {
-        product = new ProductDto(1, "Computer", 34, 2004);
+        product = new ProductDto(1, "keyboard", 10, 1);
     }
 
     @Test
@@ -42,7 +56,7 @@ class ProductControllerTest {
         when(productServiceMock.findAllProducts())
                 .thenReturn(
                         List.of(
-                                new ProductDto(1, "Computer", 34, 2004),
+                                new ProductDto(1, "keyboard", 10, 1),
                                 new ProductDto(2, "Mouse", 10, 1)
                         )
                 );
@@ -51,9 +65,9 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size()").value(2))
                 .andExpect(jsonPath("$[0].productId").value(1))
-                .andExpect(jsonPath("$[0].name").value("Computer"))
-                .andExpect(jsonPath("$[0].quantity").value(34))
-                .andExpect(jsonPath("$[0].version").value(2004));
+                .andExpect(jsonPath("$[0].name").value("keyboard"))
+                .andExpect(jsonPath("$[0].quantity").value(10))
+                .andExpect(jsonPath("$[0].version").value(1));
 
         verify(productServiceMock, times(1)).findAllProducts();
 
@@ -67,13 +81,13 @@ class ProductControllerTest {
         mockMvc.perform(get("/api/products/{id}", 1))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ETAG, "\"2004\""))
+                .andExpect(header().string(HttpHeaders.ETAG, "\"1\""))
                 .andExpect(header().string(HttpHeaders.LOCATION, "/products/1"))
                 .andExpect(jsonPath("$.size()").value(4))
                 .andExpect(jsonPath("$.productId").value(1))
-                .andExpect(jsonPath("$.name").value("Computer"))
-                .andExpect(jsonPath("$.quantity").value(34))
-                .andExpect(jsonPath("$.version").value(2004));
+                .andExpect(jsonPath("$.name").value("keyboard"))
+                .andExpect(jsonPath("$.quantity").value(10))
+                .andExpect(jsonPath("$.version").value(1));
 
         verify(productServiceMock, times(1)).findById(1);
 
@@ -90,13 +104,13 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/products/create - Success")
+    @DisplayName("POST /api/products - Success")
     void testPostCreateNewProduct() throws Exception {
         ProductDto postProduct = new ProductDto("keyboard", 10);
         ProductDto mockProduct = new ProductDto(1, "keyboard", 10, 1);
 
         when(productServiceMock.save(any())).thenReturn(mockProduct);
-        mockMvc.perform(post("/api/products/create")
+        mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(asJsonString(postProduct)))
                 .andExpect(status().isCreated())
@@ -116,7 +130,7 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/products/update/{id} - Success")
+    @DisplayName("PUT /api/products/{id} - Success")
     void testPuttUpdateProductSuccess() throws Exception {
         ProductDto putProduct = new ProductDto("keyboard", 10);
         ProductDto mockProduct = new ProductDto(1, "keyboard", 10, 1);
@@ -124,7 +138,7 @@ class ProductControllerTest {
         when(productServiceMock.findById(1)).thenReturn(Optional.of(mockProduct));
         when(productServiceMock.update(any())).thenReturn(true);
 
-        mockMvc.perform(put("/api/products/update/{id}", 1)
+        mockMvc.perform(put("/api/products/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 1)
                         .content(asJsonString(putProduct)))
@@ -146,7 +160,7 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/products/update/{id} -Not Found")
+    @DisplayName("PUT /api/products/{id} -Not Found")
     void testPutProductNotFound() throws Exception {
 
         when(productServiceMock.findById(1)).thenReturn(Optional.empty());
@@ -157,7 +171,7 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/products/update/{id} -Not Found")
+    @DisplayName("PUT /api/products/{id} -Conflict")
     void testProductPutVersionMisMatch() throws Exception {
 
         ProductDto putProduct = new ProductDto("keyboard", 10);
@@ -166,7 +180,7 @@ class ProductControllerTest {
         when(productServiceMock.findById(1)).thenReturn(Optional.of(mockProduct));
         when(productServiceMock.update(any())).thenReturn(false);
 
-        mockMvc.perform(put("/api/products/update/{id}", 1)
+        mockMvc.perform(put("/api/products/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 1)
                         .content(asJsonString(putProduct)))
@@ -174,12 +188,12 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/products/delete/{id} -Found")
+    @DisplayName("DELETE /api/products/{id} -Found")
     void testDeleteProductByIdSuccess() throws Exception {
 
         when(productServiceMock.findById(1)).thenReturn(Optional.of(product));
         when(productServiceMock.delete(1)).thenReturn(true);
-        mockMvc.perform(delete("/api/products/delete/{id}", 1))
+        mockMvc.perform(delete("/api/products/{id}", 1))
                 .andExpect(status().isOk());
 
         verify(productServiceMock, times(1)).delete(1);
@@ -187,22 +201,22 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/products/delete/{id} -Not Found")
+    @DisplayName("DELETE /api/products/{id} -Not Found")
     void testDeleteProductByIdNotFound() throws Exception {
 
         when(productServiceMock.findById(1)).thenReturn(Optional.empty());
         when(productServiceMock.delete(any())).thenReturn(false);
-        mockMvc.perform(delete("/api/products/delete/{id}", 1))
+        mockMvc.perform(delete("/api/products/{id}", 1))
                 .andExpect(status().isNotFound());
 
     }
 
     @Test
-    @DisplayName("DELETE /api/products/delete/{id} -Failure")
+    @DisplayName("DELETE /api/products/{id} -Failure")
     void testDeleteProductFailure() throws Exception {
         when(productServiceMock.findById(1)).thenReturn(Optional.of(product));
         when(productServiceMock.delete(1)).thenReturn(false);
-        mockMvc.perform(delete("/api/products/delete/{id}", 1))
+        mockMvc.perform(delete("/api/products/{id}", 1))
                 .andExpect(status().isInternalServerError());
 
     }

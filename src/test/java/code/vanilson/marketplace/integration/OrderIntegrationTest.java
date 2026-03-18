@@ -1,7 +1,8 @@
 package code.vanilson.marketplace.integration;
 
 
-import code.vanilson.marketplace.model.Order;
+import code.vanilson.marketplace.dto.CustomerDto;
+import code.vanilson.marketplace.dto.OrderDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.database.rider.core.api.connection.ConnectionHolder;
 import com.github.database.rider.core.api.dataset.DataSet;
@@ -19,13 +20,17 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith({DBUnitExtension.class, SpringExtension.class})
 @SpringBootTest
 @ActiveProfiles("test")
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class OrderIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
@@ -119,13 +124,18 @@ class OrderIntegrationTest {
      * @throws Exception If an error occurs during the test execution.
      */
     @Test
-    @DisplayName("POST /api/orders/create -Success")
+    @DisplayName("POST /api/orders -Success")
     @DataSet(value = "datasets/orders.yml")
     void testCreateOrder() throws Exception {
-        Order order = new Order();
-        mockMvc.perform(post("/api/orders/create")
+        CustomerDto customer = new CustomerDto(1L, "test", "test@test.test", "test 1");
+        OrderDto orderDto = OrderDto.builder()
+                .customer(customer)
+                .orderItems(java.util.Collections.emptyList())
+                .build();
+
+        mockMvc.perform(post("/api/orders")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(asJsonString(order)))
+                        .content(asJsonString(orderDto)))
                 .andExpect(status().isCreated())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.orderId").exists());
@@ -134,12 +144,12 @@ class OrderIntegrationTest {
 
 
     @Test
-    @DisplayName("/api/orders/delete/1 -Success")
+    @DisplayName("/api/orders/1 -Success")
     @DataSet(value = "datasets/orders.yml")
     void testDeleteOrderSuccess() throws Exception {
         Long orderId = 1L;
         // Performing a DELETE request to delete the order
-        mockMvc.perform(delete("/api/orders/delete/{id}", orderId))
+        mockMvc.perform(delete("/api/orders/{id}", orderId))
                 .andExpect(status().isOk());
     }
 
@@ -149,12 +159,12 @@ class OrderIntegrationTest {
      * @throws Exception If an error occurs during the test execution.
      */
     @Test
-    @DisplayName("/api/orders/delete/123 - Failed")
+    @DisplayName("/api/orders/123 - Failed")
     @DataSet(value = "datasets/orders.yml")
     void testDeleteOrderIdNotFound() throws Exception {
         Long orderId = 123L;
         // Performing a DELETE request to delete the order
-        mockMvc.perform(delete("/api/orders/delete/{id}", orderId))
+        mockMvc.perform(delete("/api/orders/{id}", orderId))
                 .andExpect(status().isNotFound());
     }
 

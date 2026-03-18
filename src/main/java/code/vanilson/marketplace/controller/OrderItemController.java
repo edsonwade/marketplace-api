@@ -1,7 +1,7 @@
 package code.vanilson.marketplace.controller;
 
-import code.vanilson.marketplace.model.OrderItem;
-import code.vanilson.marketplace.service.OrderItemServiceImpl;
+import code.vanilson.marketplace.dto.OrderItemDto;
+import code.vanilson.marketplace.service.OrderItemService;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,9 +19,9 @@ public class OrderItemController {
 
     public static final String ORDER = "/orderItems/";
     private static final Logger logger = LogManager.getLogger(OrderItemController.class);
-    private final OrderItemServiceImpl orderItemService;
+    private final OrderItemService orderItemService;
 
-    public OrderItemController(OrderItemServiceImpl orderItemService) {
+    public OrderItemController(OrderItemService orderItemService) {
         this.orderItemService = orderItemService;
     }
 
@@ -31,7 +31,7 @@ public class OrderItemController {
      * @return All orderItems in the database.
      */
     @GetMapping
-    public ResponseEntity<Iterable<OrderItem>> getOrderItems() {
+    public ResponseEntity<Iterable<OrderItemDto>> getOrderItems() {
         return ResponseEntity.ok().body(orderItemService.findAllOrderItems());
     }
 
@@ -42,7 +42,7 @@ public class OrderItemController {
      * @return The orderItem with the specified ID.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Optional<OrderItem>> getOrderItemById(@PathVariable Long id) {
+    public ResponseEntity<Optional<OrderItemDto>> getOrderItemById(@PathVariable Long id) {
         return ResponseEntity.ok()
                 .body(orderItemService.findOrderItemById(id));
     }
@@ -50,18 +50,18 @@ public class OrderItemController {
     /**
      * Creates a new orderItem.
      *
-     * @param orderItem The orderItem to create.
+     * @param orderItemDto The orderItem to create.
      * @return The created orderItem.
      */
-    @PostMapping("/create")
-    public ResponseEntity<OrderItem> createOrderItem(@Valid @RequestBody OrderItem orderItem) {
+    @PostMapping
+    public ResponseEntity<OrderItemDto> createOrderItem(@Valid @RequestBody OrderItemDto orderItemDto) {
         logger.info("Creating new orderItem with Order: {}, product: {}, quantity: {}",
-                orderItem.getOrder(),
-                orderItem.getProduct(),
-                orderItem.getQuantity());
+                orderItemDto.getOrder(),
+                orderItemDto.getProduct(),
+                orderItemDto.getQuantity());
 
         // Create a new orderItem
-        OrderItem newOrderItem = orderItemService.saveOrderItem(orderItem);
+        OrderItemDto newOrderItem = orderItemService.saveOrderItem(orderItemDto);
 
         try {
             // Build a created response
@@ -92,13 +92,13 @@ public class OrderItemController {
      * 404 Not Found if a orderItem with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteOrderItem(@PathVariable Long id) {
 
         logger.info("Deleting orderItem with ID {}", id);
 
         // Get the existing orderItem
-        Optional<OrderItem> existingOrderItem = orderItemService.findOrderItemById(id);
+        Optional<OrderItemDto> existingOrderItem = orderItemService.findOrderItemById(id);
 
         return existingOrderItem.map(p -> {
             if (orderItemService.deleteOrderItemById(p.getOrderItemId())) {

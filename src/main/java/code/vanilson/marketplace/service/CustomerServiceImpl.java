@@ -61,34 +61,36 @@ public class CustomerServiceImpl implements CustomerService {
     /**
      * Saves a new customer to the database.
      *
-     * @param customer The Customer object to be saved.
-     * @return The saved Customer object.
-     * @throws IllegalRequestException If the 'customer' object is null.
+     * @param customerDto The CustomerDto object to be saved.
+     * @return The saved CustomerDto object.
+     * @throws IllegalRequestException If the 'customerDto' object is null.
      */
     @Override
     @Transactional
-    public Customer saveCustomer(Customer customer) {
-        if (Objects.isNull(customer)) {
-            logger.error("The 'customer' object must not be:{}", customer);
+    public CustomerDto saveCustomer(CustomerDto customerDto) {
+        if (Objects.isNull(customerDto)) {
+            logger.error(THE_CUSTOMER_OBJECT_MUST_NOT_BE_NULL);
             throw new IllegalRequestException(THE_CUSTOMER_OBJECT_MUST_NOT_BE_NULL);
         }
-        logger.info("Customer saved with success:{}", customer);
-        return customerRepository.save(customer);
+        var customer = CustomerMapper.toCustomer(customerDto);
+        var savedCustomer = customerRepository.save(customer);
+        logger.info("Customer saved with success:{}", savedCustomer);
+        return CustomerMapper.toCustomerDto(savedCustomer);
     }
 
     /**
      * Updates an existing customer in the database.
      *
-     * @param id       The unique identifier of the customer.
-     * @param customer The updated Customer object.
-     * @return The updated Customer object.
+     * @param id          The unique identifier of the customer.
+     * @param customerDto The updated CustomerDto object.
+     * @return The updated CustomerDto object.
      * @throws ObjectWithIdNotFound    If a customer with the specified ID is not found.
-     * @throws IllegalRequestException If the 'customer' object is null or any of its fields are null.
+     * @throws IllegalRequestException If the 'customerDto' object is null or any of its fields are null.
      */
     @Override
     @Transactional
-    public Customer updateCustomer(long id, Customer customer) {
-        if (Objects.isNull(customer)) {
+    public CustomerDto updateCustomer(long id, CustomerDto customerDto) {
+        if (Objects.isNull(customerDto)) {
             logger.error(THE_CUSTOMER_OBJECT_MUST_NOT_BE_NULL);
             throw new IllegalRequestException(THE_CUSTOMER_OBJECT_MUST_NOT_BE_NULL);
         }
@@ -100,19 +102,19 @@ public class CustomerServiceImpl implements CustomerService {
 
         var existingCustomer = optionalCustomer.get();
 
-        if (customer.getName() == null || customer.getEmail() == null || customer.getAddress() == null) {
+        if (customerDto.getName() == null || customerDto.getEmail() == null || customerDto.getAddress() == null) {
             logger.error("Updating to null values for 'name', 'email', or 'address' is not allowed.");
             throw new IllegalRequestException(
                     "Updating to null values for 'name', 'email', or 'address' is not allowed.");
         }
 
-        existingCustomer.setName(customer.getName());
-        existingCustomer.setEmail(customer.getEmail());
-        existingCustomer.setAddress(customer.getAddress());
+        existingCustomer.setName(customerDto.getName());
+        existingCustomer.setEmail(customerDto.getEmail());
+        existingCustomer.setAddress(customerDto.getAddress());
 
         Customer updatedCustomer = customerRepository.save(existingCustomer);
         logger.info("Customer updated with success: {}", updatedCustomer);
-        return updatedCustomer;
+        return CustomerMapper.toCustomerDto(updatedCustomer);
     }
 
     /**
@@ -134,29 +136,5 @@ public class CustomerServiceImpl implements CustomerService {
         return true;
     }
 
-    /**
-     * Deletes a customer from the database by their unique identifier.
-     * This method is a duplicate of the deleteCustomer method and serves as an example of how to handle duplicate method names.
-     *
-     * @param id The unique identifier of the customer.
-     * @return True if the customer is successfully deleted, otherwise false.
-     * @throws ObjectWithIdNotFound If a customer with the specified ID is not found.
-     */
-    @Transactional
-    public boolean deleteCustomers(long id) {
-        var customerOptional = customerRepository.findById(id);
-
-        if (customerOptional.isEmpty()) {
-            throw new ObjectWithIdNotFound("Customer with id " + id + NOT_FOUND);
-        }
-
-        var customer = customerOptional.get();
-        var customerDto = CustomerMapper.toCustomerDto(customer);
-
-        customerRepository.delete(customer);
-
-        logger.info("Delete CustomerDto with id: {}", customerDto.getCustomerId());
-        return true;
-    }
 
 }

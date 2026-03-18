@@ -4,15 +4,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.Objects;
 
+@Setter
 @Getter
 @Entity
 @Table(name = "tb_products")
 @JsonPropertyOrder({"id", "name", "quantity", "version"})
-public class Product implements Serializable {
+public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id", nullable = false)
@@ -20,6 +22,7 @@ public class Product implements Serializable {
     private Integer productId;
     private String name;
     private Integer quantity;
+    @Version
     private Integer version;
 
 
@@ -43,22 +46,6 @@ public class Product implements Serializable {
         this.productId = id;
         this.name = name;
         this.quantity = quantity;
-    }
-
-    public void setProductId(Integer id) {
-        this.productId = id;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
-    }
-
-    public void setVersion(Integer version) {
-        this.version = version;
     }
 
     @Override

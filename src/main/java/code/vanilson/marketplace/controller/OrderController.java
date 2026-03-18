@@ -1,7 +1,7 @@
 package code.vanilson.marketplace.controller;
 
-import code.vanilson.marketplace.model.Order;
-import code.vanilson.marketplace.service.OrderServiceImpl;
+import code.vanilson.marketplace.dto.OrderDto;
+import code.vanilson.marketplace.service.OrderService;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,9 +20,9 @@ public class OrderController {
 
     public static final String ORDER = "/orders/";
     private static final Logger logger = LogManager.getLogger(OrderController.class);
-    private final OrderServiceImpl orderService;
+    private final OrderService orderService;
 
-    public OrderController(OrderServiceImpl orderService) {
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
     }
 
@@ -32,7 +32,7 @@ public class OrderController {
      * @return All orders in the database.
      */
     @GetMapping
-    public ResponseEntity<Iterable<Order>> getAllOrders() {
+    public ResponseEntity<Iterable<OrderDto>> getAllOrders() {
         return ResponseEntity.ok().body(orderService.findAllOrders());
     }
 
@@ -43,7 +43,7 @@ public class OrderController {
      * @return The order with the specified ID.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Optional<Order>> getOrderById(@PathVariable Long id) {
+    public ResponseEntity<Optional<OrderDto>> getOrderById(@PathVariable Long id) {
         return ResponseEntity.ok()
                 .body(orderService.findOrderById(id));
     }
@@ -51,14 +51,14 @@ public class OrderController {
     /**
      * Creates a new order.
      *
-     * @param order The order to create.
+     * @param orderDto The order to create.
      * @return The created order.
      */
-    @PostMapping(value = "/create", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Order> createOrder(@RequestBody @Valid Order order) {
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<OrderDto> createOrder(@RequestBody @Valid OrderDto orderDto) {
 
         // Create a new order
-        Order newOrder = orderService.saveOrder(order);
+        OrderDto newOrder = orderService.saveOrder(orderDto);
 
         try {
             // Build a created response
@@ -73,11 +73,11 @@ public class OrderController {
     /**
      * Updates the fields in the specified order with the specified ID.
      */
-    @PutMapping("/update/{id}")
-    public ResponseEntity<Order> updateOrder(@Valid @RequestBody Order order,
+    @PutMapping("/{id}")
+    public ResponseEntity<OrderDto> updateOrder(@Valid @RequestBody OrderDto orderDto,
                                              @PathVariable Long id) {
-        Order orders = orderService.updateOrder(id, order);
-        return ResponseEntity.ok().body(orders);
+        OrderDto updatedOrder = orderService.updateOrder(id, orderDto);
+        return ResponseEntity.ok().body(updatedOrder);
     }
 
     /**
@@ -89,13 +89,13 @@ public class OrderController {
      * 404 Not Found if a order with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteOrder(@PathVariable Long id) {
 
         logger.info("Deleting order with ID {}", id);
 
         // Get the existing order
-        Optional<Order> existingOrder = orderService.findOrderById(id);
+        Optional<OrderDto> existingOrder = orderService.findOrderById(id);
 
         return existingOrder.map(p -> {
             if (orderService.deleteOrderById(p.getOrderId())) {

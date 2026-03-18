@@ -1,52 +1,12 @@
-version: '3.8'
-
-volumes:
-  prometheus-data:
-    driver: local
-  grafana-data:
-    driver: local
-  postgres-data:
-    driver: local
-
 services:
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - "./src/main/resources/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml"
-      - prometheus-data:/prometheus
+  # -----------------------
+  # DATABASE
+  # -----------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: marketplace-postgres
     restart: unless-stopped
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-    networks:
-      - mindswap-net
-
-  marketplace-service:
-    build: .
-    container_name: marketplace-service
-    depends_on:
-      - mindswap-postgres
-    ports:
-      - '8081:8081'
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://mindswap-postgres:5432/marketplace_api
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_DB_PASSWORD}
-      SERVER_PORT: '8081'
-      SPRING_PROFILES_ACTIVE: 'docker'
-      SPRING_DATA_SOURCE: org.postgresql.Driver
-      HIBERNATE_DDL_AUTO: 'none'
-    networks:
-      - mindswap-net
-
-  mindswap-postgres:
-    image: postgres:latest
-    container_name: mindswap-postgres
-    ports:
-      - "5433:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB_NAME}
       POSTGRES_USER: ${POSTGRES_DB_USER}
@@ -54,26 +14,135 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - mindswap-net
+      - backend
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_DB_USER}" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
+  # -----------------------
+  # REDIS
+  # -----------------------
+  redis:
+    image: redis:7-alpine
+    container_name: marketplace-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------
+  # KAFKA
+  # -----------------------
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: marketplace-kafka
+    restart: unless-stopped
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9092'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------
+  # APPLICATION
+  # -----------------------
+  marketplace-service:
+    build: .
+    container_name: marketplace-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
-      - "3000:3000"
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_DB_PASSWORD}
+      SPRING_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------
+  # PROMETHEUS
+  # -----------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/ready"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------
+  # GRAFANA
+  # -----------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
     volumes:
       - grafana-data:/var/lib/grafana
-    restart: unless-stopped
     networks:
-      - mindswap-net
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
 
+# -----------------------
+# NETWORKS
+# -----------------------
 networks:
-  mindswap-net:
+  backend:
+    driver: bridge
+  monitoring:
     driver: bridge
 
-
+# -----------------------
+# VOLUMES
+# -----------------------
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:

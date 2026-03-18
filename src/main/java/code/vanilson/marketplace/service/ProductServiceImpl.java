@@ -35,10 +35,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Optional<ProductDto> findById(Integer id) {
-        Optional<Product> product = Optional.ofNullable(productRepository.findById(id)
-                .orElseThrow(() -> new ObjectWithIdNotFound(MessageFormat.format(" product with id {0} not found", id))));
-        logger.info("Find product with id: {}", id);
-        return ProductMapper.toProduct(product);
+        return productRepository.findById(id)
+                .map(ProductMapper::toProductDto);
     }
 
     @Override
@@ -55,19 +53,26 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public boolean update(ProductDto productDto) {
-        Product product = ProductMapper.toProduct(productDto);
-        logger.info("Update product: {}", productDto);
-        return productRepository.update(product);
+        if (productDto == null || productDto.getProductId() == null) {
+            return false;
+        }
+        return productRepository.findById(productDto.getProductId())
+                .map(existingProduct -> {
+                    existingProduct.setName(productDto.getName());
+                    existingProduct.setQuantity(productDto.getQuantity());
+                    existingProduct.setVersion(productDto.getVersion());
+                    productRepository.save(existingProduct);
+                    logger.info("Updated product: {}", productDto);
+                    return true;
+                }).orElse(false);
     }
 
     @Override
     public boolean delete(Integer id) {
-        var product = productRepository.findById(id);
-        var productDto = ProductMapper.toProduct(product);
-        if (productDto.isEmpty()) {
+        if (!productRepository.existsById(id)) {
             throw new ObjectWithIdNotFound(MessageFormat.format("Product with id {0} not found", id));
         }
-        productDto.ifPresent(productDto1 -> productRepository.delete(id));
+        productRepository.deleteById(id);
         logger.info("Delete product with id: {}", id);
         return true;
     }
