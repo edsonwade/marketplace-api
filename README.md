@@ -1,4 +1,4 @@
-# 🛒 Marketplace API
+# 📦 Marketplace Core API
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://www.oracle.com/java/)
@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A robust, enterprise-ready E-commerce Backend built with **Spring Boot 3**. This project demonstrates a clean implementation of a marketplace system, focusing on high-level automated testing, observability, and security.
+A high-performance **Marketplace Core Backend** built with **Spring Boot 3**. This system serves as the foundational engine for catalog management, customer relationship handling, and order lifecycle orchestration, emphasizing security, scalability, and observability.
 
 ---
 
@@ -36,17 +36,17 @@ graph TD
 
 ---
 
-## 🚀 Core Features
+## 🚀 Core Services
 
-- **🔐 Advanced Security**: Full OAuth2-style flow with JWT, Refresh Tokens, and Role-Based Access Control (RBAC).
-- **📦 Catalog Management**: Sophisticated product management with inventory tracking and concurrency control.
-- **👥 Customer CRM**: Comprehensive customer data management and order history.
-- **🛒 Order Lifecycle**: Multi-item order processing with transactional integrity and referential constraints.
+- **🔐 Security Service**: Full OAuth2-style flow with JWT, Refresh Tokens, and Role-Based Access Control (RBAC).
+- **📦 Catalog Service**: Sophisticated product management with inventory tracking and concurrency control.
+- **👥 Customer Service**: Comprehensive customer data management and history.
+- **🛒 Order Service**: Multi-item order processing with transactional integrity and referential constraints.
 - **📊 Observability Stack**: Production-grade monitoring with Prometheus metrics and Grafana visualizations.
 - **🧪 Quality Assurance**: 
   - **Unit Testing**: 90%+ coverage for business logic with Mockito.
   - **BDD Integration**: Gherkin scenarios (Cucumber) executed against real PostgreSQL instances via **TestContainers**.
-- **🔄 Database Evolution**: Version-controlled schema migrations using **Flyway**.
+- **🔄 Schema Migration**: Version-controlled database evolution using **Flyway**.
 
 ---
 
@@ -125,16 +125,16 @@ src/main/java/code/vanilson/marketplace/
 }
 ```
 
-### 🛍️ 2. Create Product
+### 🛍️ 2. Manage Catalog
 **POST** `/api/products` (Requires JWT Header)
 ```json
 {
-  "name": "High-End Gaming Laptop",
+  "name": "High-End Processing Unit",
   "quantity": 15
 }
 ```
 
-### 🛒 3. Place Order
+### 🛒 3. Process Transaction
 **POST** `/api/orders`
 ```json
 {
