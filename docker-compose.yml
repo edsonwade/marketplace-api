@@ -1,67 +1,6 @@
 services:
 
   # -----------------------
-  # DATABASE
-  # -----------------------
-  postgres:
-    image: postgres:15-alpine
-    container_name: marketplace-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB_NAME}
-      POSTGRES_USER: ${POSTGRES_DB_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # -----------------------
-  # REDIS
-  # -----------------------
-  redis:
-    image: redis:7-alpine
-    container_name: marketplace-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis-data:/data
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # -----------------------
-  # KAFKA
-  # -----------------------
-  kafka:
-    image: bitnami/kafka:latest
-    container_name: marketplace-kafka
-    restart: unless-stopped
-    environment:
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - ALLOW_PLAINTEXT_LISTENER=yes
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9092'"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
-  # -----------------------
   # APPLICATION
   # -----------------------
   marketplace-service:
@@ -75,22 +14,164 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      mongodb:
+        condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8081:8080"
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB_NAME}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_DB_PASSWORD}
-      SPRING_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      POSTGRES_DB_USER: postgres
+      POSTGRES_DB_PASSWORD: postgres
+      SPRING_REDIS_HOST: marketplace-redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: marketplace-kafka:9092
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:mongo@marketplace-mongodb:27017/marketplace_api?authSource=admin
+      SPRING_MAIL_HOST: marketplace-mailhog
+      SPRING_MAIL_PORT: 1025
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health" ]
       interval: 20s
       timeout: 5s
       retries: 5
+  # -----------------------
+  # DATABASE
+  # -----------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: marketplace-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: marketplace_api
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d marketplace_api" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------
+  # REDIS
+  # -----------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: marketplace-redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis_pass_2024 --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "redis_pass_2024", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MESSAGE BROKER ─────────────────────────────────────────────────────────
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: marketplace-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - backend
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: marketplace-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "29092:29092"
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: marketplace-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8090:8080"
+    networks:
+      - backend
+
+  # -----------------------
+  # MONGODB
+  # -----------------------
+  mongodb:
+    image: mongo:7.0-jammy
+    container_name: marketplace-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - backend
+    healthcheck:
+      test: >
+        echo "db.adminCommand('ping').ok"
+        | mongosh -u mongo -p mongo --authenticationDatabase admin --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # -----------------------
+  # MAILHOG (Email Testing)
+  # -----------------------
+  mailhog:
+    image: mailhog/mailhog
+    container_name: marketplace-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      - backend
 
   # -----------------------
   # PROMETHEUS
@@ -105,9 +186,9 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
-      - monitoring
+      - backend
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/ready"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:9090/-/ready" ]
       interval: 20s
       timeout: 5s
       retries: 5
@@ -124,10 +205,30 @@ services:
     networks:
       - monitoring
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health" ]
       interval: 20s
       timeout: 5s
       retries: 5
+    depends_on:
+      - prometheus
+
+  flyway:
+    image: flyway/flyway
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - FLYWAY_URL=jdbc:postgresql://postgres:5432/marketplace_api
+      - FLYWAY_USER=postgres
+      - FLYWAY_PASSWORD=postgres
+      - FLYWAY_LOCATIONS=filesystem:/flyway/sql
+    volumes:
+      - ./db/migration:/flyway/sql
+    command: migrate
+    networks:
+      - backend
+    restart: "no"
+
 
 # -----------------------
 # NETWORKS
@@ -144,5 +245,7 @@ networks:
 volumes:
   postgres-data:
   redis-data:
+  mongodb-data:
   prometheus-data:
   grafana-data:
+  kafka-data:

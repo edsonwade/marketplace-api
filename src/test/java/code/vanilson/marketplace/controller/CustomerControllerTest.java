@@ -1,60 +1,48 @@
 package code.vanilson.marketplace.controller;
 
-import code.vanilson.marketplace.config.JwtAuthenticationFilter;
-import code.vanilson.marketplace.config.JwtService;
 import code.vanilson.marketplace.dto.CustomerDto;
 import code.vanilson.marketplace.service.CustomerServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockitoAnnotations;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Collections;
 import java.util.Optional;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = CustomerController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
 class CustomerControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
-
-    @MockBean
+    @Mock
     private CustomerServiceImpl customerService;
-
-    @MockBean
-    JwtAuthenticationFilter jwtAuthenticationFilter;
-    @MockBean
-    AuthenticationProvider authenticationProvider;
-    @MockBean
-    LogoutHandler logoutHandler;
-    @MockBean
-    JwtService jwtService;
+    @InjectMocks
+    private CustomerController customerController;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
-
-        MockitoAnnotations
-                .openMocks(this);
+        mockMvc = MockMvcBuilders.standaloneSetup(customerController).build();
+        objectMapper = new ObjectMapper();
     }
 
     @Test
     @DisplayName("Get All Customers")
     void testGetCustomers() throws Exception {
         when(customerService.findAllCustomers()).thenReturn(Collections.emptyList());
-
         mockMvc.perform(get("/api/customers"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
@@ -65,10 +53,7 @@ class CustomerControllerTest {
     void testGetCustomerById() throws Exception {
         Long customerId = 1L;
         CustomerDto customer = new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1");
-
-        // Mock the service to return a customer by ID
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.of(customer));
-
         mockMvc.perform(get("/api/customers/{id}", customerId))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -81,10 +66,7 @@ class CustomerControllerTest {
     @DisplayName("Create Customer")
     void testCreateCustomer() throws Exception {
         CustomerDto newCustomer = new CustomerDto(1L, "test", "test@example.com", "test 1");
-
-        // Mock the service to return the created customer
         when(customerService.saveCustomer(any(CustomerDto.class))).thenReturn(newCustomer);
-
         mockMvc.perform(post("/api/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"New Customer\",\"email\":\"new@example.com\",\"address\":\"test 1\"}"))
@@ -100,14 +82,10 @@ class CustomerControllerTest {
     void testUpdateCustomer() throws Exception {
         Long customerId = 1L;
         CustomerDto updatedCustomer = new CustomerDto(customerId, "Updated Name", "updated@example.com", "Updated Address");
-
-        // Mock the service to return the updated customer
         when(customerService.updateCustomer(eq(customerId), any(CustomerDto.class))).thenReturn(updatedCustomer);
-
         mockMvc.perform(put("/api/customers/{id}", customerId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(
-                                "{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
+                        .content("{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }
@@ -116,10 +94,9 @@ class CustomerControllerTest {
     @DisplayName("Delete Customer")
     void testDeleteCustomer() throws Exception {
         Long customerId = 1L;
-        when(customerService.findCustomerById(customerId))
-                .thenReturn(Optional.of(new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1")));
+        CustomerDto customer = new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1");
+        when(customerService.findCustomerById(customerId)).thenReturn(Optional.of(customer));
         when(customerService.deleteCustomer(customerId)).thenReturn(true);
-
         mockMvc.perform(delete("/api/customers/{id}", customerId))
                 .andExpect(status().isOk());
     }
@@ -129,7 +106,6 @@ class CustomerControllerTest {
     void testDeleteCustomerCustomerNotFound() throws Exception {
         Long customerId = 1L;
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.empty());
-
         mockMvc.perform(delete("/api/customers/{id}", customerId))
                 .andExpect(status().isNotFound());
     }
@@ -138,13 +114,10 @@ class CustomerControllerTest {
     @DisplayName("Delete Customer - Internal Server Error")
     void testDeleteCustomerInternalServerError() throws Exception {
         Long customerId = 1L;
-
-        when(customerService.findCustomerById(customerId))
-                .thenReturn(Optional.of(new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1")));
+        CustomerDto customer = new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1");
+        when(customerService.findCustomerById(customerId)).thenReturn(Optional.of(customer));
         when(customerService.deleteCustomer(customerId)).thenReturn(false);
-
         mockMvc.perform(delete("/api/customers/{id}", customerId))
                 .andExpect(status().isInternalServerError());
     }
-
 }

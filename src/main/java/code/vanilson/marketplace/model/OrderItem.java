@@ -2,21 +2,26 @@ package code.vanilson.marketplace.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 @Entity
-@Table(name = "tb_orderItems")
+@Table(name = "tb_order_items")
 @Getter
 @Setter
 @JsonPropertyOrder({"orderItemId", "order", "product", "quantity"})
-public class OrderItem implements Serializable {
-    private static final long serialVersionUID = 54667873578L;
+public class OrderItem  {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "order_item_id", nullable = false)

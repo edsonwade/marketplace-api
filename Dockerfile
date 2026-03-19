@@ -1,32 +1,59 @@
-#########################################
-# Build Stage: Build the application using Maven
-#########################################
-FROM maven:3.8.1-openjdk-17 as builder
+# ===================================================================
+# Stage 1: Build Stage
+# ===================================================================
+FROM maven:3.9.5-eclipse-temurin-17 AS builder
 
-WORKDIR /app
+# Set working directory
+WORKDIR /build
 
-# First, copy only the pom.xml to leverage Docker cache for dependencies
+# Copy pom.xml first for dependency caching
 COPY pom.xml .
+
+# Download dependencies (cached layer)
 RUN mvn dependency:go-offline -B
 
-# Copy the rest of the source code and build the application
-COPY src src
-RUN mvn package -DskipTests
+# Copy source code
+COPY src ./src
 
+# Build the application with production profile
+RUN mvn -B clean package -DskipTests=true
 
-#########################################
-# Package Stage: Create the final container image
-#########################################
-FROM openjdk:17
+# ===================================================================
+# Stage 2: Runtime Stage
+# ===================================================================
+FROM eclipse-temurin:17-jre-alpine
 
-# Set environment variables
-ENV SERVER_PORT=8081
+# Labels for metadata
+LABEL maintainer="saas-team@company.com" \
+    version="1.0.0" \
+    description="SaaS Application - Production Ready"
 
-# Copy the built JAR file from the build stage to the new image
-COPY --from=builder /app/target/*.jar /marketplace.jar
+# Set working directory
+WORKDIR /app
 
-# Expose the port that the application will run on
-EXPOSE ${SERVER_PORT}
+# Create non-root user for security
+RUN addgroup -g 1000 -S appgroup && \
+    adduser -u 1000 -S appuser -G appgroup
 
-# Specify the command to run your application
-ENTRYPOINT ["java", "-jar", "/marketplace.jar"]
+# Create necessary directories
+RUN mkdir -p /app/logs /app/config /app/temp && \
+    chown -R appuser:appgroup /app
+
+# Copy the built artifact from builder stage
+COPY --from=builder /build/target/*.jar app.jar
+
+# Switch to non-root user
+USER appuser
+
+# Expose application port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/actuator/health || exit 1
+
+# JVM Options for production
+ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError"
+
+# Entrypoint with Java options
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

@@ -2,11 +2,16 @@ package code.vanilson.marketplace.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 @Setter
@@ -19,7 +24,7 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id", nullable = false)
     @JsonProperty("id")
-    private Integer productId;
+    private Long productId;
     private String name;
     private Integer quantity;
     @Version
@@ -35,14 +40,14 @@ public class Product {
         this.quantity = quantity;
     }
 
-    public Product(Integer id, String name, Integer quantity, Integer version) {
+    public Product(Long id, String name, Integer quantity, Integer version) {
         this.productId = id;
         this.name = name;
         this.quantity = quantity;
         this.version = version;
     }
 
-    public Product(Integer id, String name, Integer quantity) {
+    public Product(Long id, String name, Integer quantity) {
         this.productId = id;
         this.name = name;
         this.quantity = quantity;

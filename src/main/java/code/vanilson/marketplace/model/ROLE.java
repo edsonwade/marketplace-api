@@ -1,7 +1,6 @@
 package code.vanilson.marketplace.model;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.Collections;
@@ -11,9 +10,7 @@ import java.util.stream.Collectors;
 
 import static code.vanilson.marketplace.model.Permission.*;
 
-@RequiredArgsConstructor
 public enum ROLE {
-
     USER(Collections.emptySet()),
     ADMIN(
             Set.of(
@@ -39,8 +36,12 @@ public enum ROLE {
     @Getter
     private final Set<Permission> permissions;
 
+    ROLE(Set<Permission> permissions) {
+        this.permissions = permissions;
+    }
+
     public List<SimpleGrantedAuthority> getAuthorities() {
-        var authorities = getPermissions()
+        List<SimpleGrantedAuthority> authorities = permissions
                 .stream()
                 .map(permission -> new SimpleGrantedAuthority(permission.getPermission()))
                 .collect(Collectors.toList());

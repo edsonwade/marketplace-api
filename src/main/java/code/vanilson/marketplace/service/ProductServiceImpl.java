@@ -34,7 +34,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Optional<ProductDto> findById(Integer id) {
+    public Optional<ProductDto> findById(long id) {
         return productRepository.findById(id)
                 .map(ProductMapper::toProductDto);
     }
@@ -68,7 +68,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public boolean delete(Integer id) {
+    public boolean delete(long id) {
         if (!productRepository.existsById(id)) {
             throw new ObjectWithIdNotFound(MessageFormat.format("Product with id {0} not found", id));
         }
