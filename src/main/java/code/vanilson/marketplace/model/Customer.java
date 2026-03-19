@@ -2,11 +2,17 @@ package code.vanilson.marketplace.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 
@@ -15,8 +21,7 @@ import java.util.Objects;
 @Getter
 @Setter
 @JsonPropertyOrder({"customerId", "name", "email", "address"})
-public class Customer implements Serializable {
-    private static final long serialVersionUID = 123578L;
+public class Customer  {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "customer_id", nullable = false)

@@ -4,11 +4,19 @@ import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-import jakarta.persistence.*;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
@@ -19,8 +27,8 @@ import java.util.Set;
 @Setter
 @JsonPropertyOrder({"orderId", "customer", "localDateTime", "orderItems"})
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "orderId")
-public class Order implements Serializable {
-    private static final long serialVersionUID = -234123578L;
+public class Order {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "order_id", nullable = false)
@@ -65,14 +73,24 @@ public class Order implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) {return true;}
-        if (o == null || getClass() != o.getClass()) {return false;}
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
 
         Order order = (Order) o;
 
-        if (!Objects.equals(orderId, order.orderId)) {return false;}
-        if (!Objects.equals(localDateTime, order.localDateTime)) {return false;}
-        if (!Objects.equals(customer, order.customer)) {return false;}
+        if (!Objects.equals(orderId, order.orderId)) {
+            return false;
+        }
+        if (!Objects.equals(localDateTime, order.localDateTime)) {
+            return false;
+        }
+        if (!Objects.equals(customer, order.customer)) {
+            return false;
+        }
         return Objects.equals(orderItems, order.orderItems);
     }
 

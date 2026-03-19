@@ -40,6 +40,8 @@ public class ProductServiceStep {
 
     @InjectMocks
     private final ProductServiceImpl productService = new ProductServiceImpl(productRepository);
+    
+    
 
     Product savedProduct;
     Product product;
@@ -51,8 +53,8 @@ public class ProductServiceStep {
     public void setUp() {
         MockitoAnnotations.openMocks(this); // Initialize mocks
         products = new ArrayList<>();
-        product = new Product(1, "TV", 10, 1);
-        savedProduct = new Product(4, "Chair", 50, 4);
+        product = new Product(1L, "TV", 10, 1);
+        savedProduct = new Product(4L, "Chair", 50, 4);
     }
 
     /**
@@ -63,7 +65,7 @@ public class ProductServiceStep {
     @Given("the product repository contains the following products")
     public void the_product_repository_contains_the_following_Products(DataTable dataTable) {
         products = dataTable.asMaps().stream().map(row ->
-                new Product(Integer.parseInt(row.get("id")),
+                new Product(Long.parseLong(row.get("id")),
                         row.get("name"),
                         Integer.parseInt(row.get("quantity")),
                         Integer.parseInt(row.get("version"))
@@ -83,7 +85,7 @@ public class ProductServiceStep {
     @Then("I should receive a list of products containing")
     public void iShouldReceiveAListOfProductsContaining(DataTable dataTable) {
         var productExpected = dataTable.asMaps().stream().map(row ->
-                new Product(Integer.parseInt(row.get("id")),
+                new Product(Long.parseLong(row.get("id")),
                         row.get("name"),
                         Integer.parseInt(row.get("quantity")),
                         Integer.parseInt(row.get("version"))
@@ -96,8 +98,8 @@ public class ProductServiceStep {
     }
 
     @Given("the product repository contains a product with id {int}")
-    public void theProductRepositoryContainsAProductWithId(int id) {
-        product = new Product(1, "TV", 10, 1);
+    public void theProductRepositoryContainsAProductWithId(long id) {
+        product = new Product(1L, "TV", 10, 1);
         when(productRepository.findById(id)).thenReturn(Optional.of(product));
     }
 
@@ -109,8 +111,8 @@ public class ProductServiceStep {
         }
     }
 
-    @Then("I should receive the product with id {int} and details")
-    public void iShouldReceiveTheProductWithIdAndDetails(Integer id, DataTable dataTable) {
+    @Then("I should receive the product with id {long} and details")
+    public void iShouldReceiveTheProductWithIdAndDetails(long id, DataTable dataTable) {
         Map<String, String> row = dataTable.asMaps().get(0);
         var expectedProduct = new Product(id, row.get("name"), Integer.parseInt(row.get("quantity")),
                 Integer.parseInt(row.get("version")));
@@ -118,7 +120,7 @@ public class ProductServiceStep {
     }
 
     @Given("the product repository does not contain a product with id {int}")
-    public void theProductRepositoryDoesNotContainAProductWithId(int id) {
+    public void theProductRepositoryDoesNotContainAProductWithId(long id) {
         when(productRepository.findById(id)).thenReturn(Optional.empty());
     }
 
@@ -135,7 +137,7 @@ public class ProductServiceStep {
         List<Map<String, String>> rows = dataTable.asMaps();
         Map<String, String> row = rows.get(0);
         savedProduct = new Product(
-                Integer.parseInt(row.get("id")),
+                Long.parseLong(row.get("id")),
                 row.get("name"),
                 Integer.parseInt(row.get("quantity")),
                 Integer.parseInt(row.get("version")));
@@ -154,7 +156,7 @@ public class ProductServiceStep {
         List<Map<String, String>> rows = dataTable.asMaps();
         Map<String, String> row = rows.get(0);
         var expectedProduct = new Product(
-                Integer.parseInt(row.get("id")),
+                Long.parseLong(row.get("id")),
                 row.get("name"),
                 Integer.parseInt(row.get("quantity")),
                 Integer.parseInt(row.get("version")));
@@ -193,7 +195,7 @@ public class ProductServiceStep {
     }
 
     @When("I update the product with id {int} to have details")
-    public void iUpdateTheProductWithIdToHaveDetails(int id, DataTable dataTable) {
+    public void iUpdateTheProductWithIdToHaveDetails(long id, DataTable dataTable) {
         List<Map<String, String>> rows = dataTable.asMaps();
         Map<String, String> row = rows.get(0);
         product.setProductId(id);
@@ -215,15 +217,15 @@ public class ProductServiceStep {
         assertEquals(Integer.parseInt(row.get("version")), updatedProduct.getVersion().intValue());
     }
 
-    @When("I delete the product with id {int}")
-    public void iDeleteTheProductWithId(int id) {
+    @When("I delete the product with id {long}")
+    public void iDeleteTheProductWithId(long id) {
         when(productRepository.existsById(id)).thenReturn(true);
         productService.delete(id);
     }
 
     @Then("the product with id {int} should be deleted successfully")
-    public void theProductWithIdShouldBeDeletedSuccessfully(int id) {
-        verify(productRepository, times(1)).deleteById(any(Integer.class));
+    public void theProductWithIdShouldBeDeletedSuccessfully(long id) {
+        verify(productRepository, times(1)).deleteById(any(Long.class));
     }
 
 

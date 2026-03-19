@@ -1,23 +1,37 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/marketplace_api
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/marketplace_api}
     username: ${POSTGRES_DB_USER:postgres}
     password: ${POSTGRES_DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: SaasHikariPool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      connection-test-query: SELECT 1
 
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
 
+    # ─── JPA ─────────────────────────────────────────────────────────────────────
   jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    hibernate:
-      ddl-auto: none
-      format_sql: true
-      show-sql: true
-    database: postgresql
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 25
+          order_inserts: true
+          order_updates: true
+        generate_statistics: false
 
   flyway:
     locations: classpath:db/migration/
@@ -32,8 +46,62 @@ spring:
     connectionTimeout: 20000
     maximumPoolSize: 5
 
-server:
-  port: 8081
+    # ─── MONGODB ─────────────────────────────────────────────────────────────────
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_USER:mongo_admin}:${MONGO_PASSWORD:mongo_pass_2024}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/${MONGO_DB:saas_audit}?authSource=admin
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis_pass_2024}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
+    # ─── CACHE ───────────────────────────────────────────────────────────────────
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000
+      cache-null-values: false
+
+
+
+  # ─── KAFKA ───────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        spring.json.add.type.headers: false
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: ${spring.application.name}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: "code.with.vanilson.marketplace.*"
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 3
+
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      expiration: 900000 # 15 minutes
+      refresh-token:
+        expiration: 604800000 # 7 days
 
 # SpringDoc OpenAPI settings
 springdoc:
@@ -44,16 +112,31 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
 
+# ─── MANAGEMENT / ACTUATOR ─────────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: "prometheus,health,info,metrics"
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      instance: ${INSTANCE_ID:local}
+  tracing:
+    sampling:
+      probability: 1.0
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
-application:
-  security:
-    jwt:
-      secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-      expiration: 900000 # 15 minutes
-      refresh-token:
-        expiration: 604800000 # 7 days
+  # RATE LIMITING
+  rate-limit:
+    requests-per-minute: 100
+    burst-capacity: 200
+

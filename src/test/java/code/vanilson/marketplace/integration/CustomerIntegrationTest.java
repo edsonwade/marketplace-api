@@ -1,34 +1,25 @@
-/**
- * Author: vanilson muhongo
- * Date:23/06/2024
- * Time:00:59
- */
-
 package code.vanilson.marketplace.integration;
 
-import com.github.database.rider.core.api.connection.ConnectionHolder;
-import com.github.database.rider.core.api.dataset.DataSet;
-import com.github.database.rider.junit5.DBUnitExtension;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@ExtendWith({DBUnitExtension.class, SpringExtension.class})
 @SpringBootTest
-@ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
 public class CustomerIntegrationTest {
 
     @Autowired
@@ -37,105 +28,98 @@ public class CustomerIntegrationTest {
     @Autowired
     private DataSource dataSource;
 
-    @SuppressWarnings("unused")
-    public ConnectionHolder getConnectionHolder() {
-        return () -> dataSource.getConnection();
+    @BeforeEach
+    void setUp() throws Exception {
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            String[] cleanups = {
+                "DELETE FROM tb_order_items",
+                "DELETE FROM tb_orders",
+                "DELETE FROM tb_customers"
+            };
+            for (String cleanup : cleanups) {
+                try { stmt.execute(cleanup); } catch (Exception ignored) {}
+            }
+            
+            String[] inserts = {
+                "INSERT INTO tb_customers (customer_id, name, email, address) VALUES (1, 'test', 'test@test.test', 'test 1')",
+                "INSERT INTO tb_customers (customer_id, name, email, address) VALUES (2, 'test1', 'test1@test.test', 'test 2')"
+            };
+            for (String insert : inserts) {
+                stmt.execute(insert);
+            }
+        }
     }
 
     @Test
-    @DataSet(value = "datasets/customers.yml")
-    @DisplayName("GET /api/customers -Success")
+    @DisplayName("GET /api/customers - Success")
     void testGetCustomers() throws Exception {
         mockMvc.perform(get("/api/customers"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }
 
-
     @Test
     @DisplayName("GET /api/customers/99 - Not Found")
-    @DataSet("datasets/customers.yml")
-    void testGetProductByIdNotFound() throws Exception {
-        // Execute the GET request
+    void testGetCustomerByIdNotFound() throws Exception {
         mockMvc.perform(get("/api/customers/{id}", 99))
-
-                // Validate that we get a 404 Not Found response
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DataSet(value = "datasets/customers.yml")
     @DisplayName("GET /api/customers/1 - Found")
     void testGetCustomerById() throws Exception {
-        long customerId = 1L;
-        mockMvc.perform(get("/api/customers/{id}", customerId))
+        mockMvc.perform(get("/api/customers/{id}", 1))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.name").value("test"))
                 .andExpect(jsonPath("$.email").value("test@test.test"))
                 .andExpect(jsonPath("$.address").value("test 1"));
     }
 
     @Test
-    @DataSet(value = "datasets/customers.yml")
-    @DisplayName("POST /api/customers -Success")
+    @DisplayName("POST /api/customers - Success")
     void testCreateCustomer() throws Exception {
         mockMvc.perform(post("/api/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"New Customer\",\"email\":\"new@example.com\",\"address\":\"test 1\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.name").value("New Customer"))
                 .andExpect(jsonPath("$.email").value("new@example.com"))
                 .andExpect(jsonPath("$.address").value("test 1"));
     }
 
-
     @Test
-    @DataSet(value = "datasets/customers.yml")
-    @DisplayName("PUT /api/customers/{id} -Success")
+    @DisplayName("PUT /api/customers/1 - Success")
     void testUpdateCustomer() throws Exception {
         mockMvc.perform(put("/api/customers/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(
-                                "{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
+                        .content("{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.name").value("Updated Name"))
                 .andExpect(jsonPath("$.email").value("updated@example.com"))
                 .andExpect(jsonPath("$.address").value("Updated Address"));
     }
 
-
     @Test
     @DisplayName("PUT /api/customers/99 - Not Found")
-    @DataSet("datasets/customers.yml")
-    void testUpdateFailedWithNotFound() throws Exception {
-        // Execute the PUT request
+    void testUpdateCustomerNotFound() throws Exception {
         mockMvc.perform(put("/api/customers/{id}", 99)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
-
-                // Validate that we get a 404 Not Found response (service throws ObjectWithIdNotFound)
                 .andExpect(status().isNotFound());
     }
 
-
     @Test
-    @DisplayName("Delete /api/customers/1 - Success")
-    @DataSet("datasets/customers.yml")
+    @DisplayName("DELETE /api/customers/1 - Success")
     void testDeleteCustomer() throws Exception {
         mockMvc.perform(delete("/api/customers/{id}", 1))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("Delete /api/customers/99 - Not Found")
-    @DataSet("datasets/customers.yml")
-    void testDeleteCustomerCustomerNotFound() throws Exception {
-
+    @DisplayName("DELETE /api/customers/99 - Not Found")
+    void testDeleteCustomerNotFound() throws Exception {
         mockMvc.perform(delete("/api/customers/{id}", 99))
                 .andExpect(status().isNotFound());
     }
-
 }

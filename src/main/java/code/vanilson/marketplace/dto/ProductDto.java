@@ -16,7 +16,7 @@ import java.io.Serializable;
 @Getter
 @Setter
 public class ProductDto implements Serializable {
-    Integer productId;
+    Long productId;
     @NotNull
     @Size(max = 45)
     String name;
@@ -29,7 +29,7 @@ public class ProductDto implements Serializable {
         // Default constructor
     }
 
-    public ProductDto(Integer productId, String name, Integer quantity, Integer version) {
+    public ProductDto(Long productId, String name, Integer quantity, Integer version) {
         this.productId = productId;
         this.name = name;
         this.quantity = quantity;

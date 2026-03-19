@@ -19,7 +19,7 @@ public interface ProductService {
      * @param id ID of the product to retrieve.
      * @return The requested Product if found.
      */
-    Optional<ProductDto> findById(Integer id);
+    Optional<ProductDto> findById(long id);
 
     /**
      * Updates the specified product, identified by its id.
@@ -43,5 +43,5 @@ public interface ProductService {
      * @param id The id of the product to delete.
      * @return True if the operation was successful.
      */
-    boolean delete(Integer id);
+    boolean delete(long id);
 }

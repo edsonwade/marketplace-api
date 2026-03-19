@@ -1,0 +1,53 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/marketplace_api
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    database: postgresql
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/
+    baseline-on-migrate: true
+    baseline-description: "init"
+    baseline-version: 0
+
+  sql:
+    init:
+      mode: never
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+
+  cache:
+    type: simple
+
+  data:
+    redis:
+      repositories:
+        enabled: false
+    mongodb:
+      repositories:
+        enabled: false
+
+server:
+  port: 0
+
+spring.test.database.replace: none

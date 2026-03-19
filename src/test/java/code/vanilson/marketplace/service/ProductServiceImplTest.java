@@ -41,10 +41,10 @@ class ProductServiceImplTest {
         productRepositoryMock = mock(ProductRepository.class);
         currentInstance = new ProductServiceImpl(productRepositoryMock);
 
-        product = new Product(1, "Keyboard", 34, 1);
+        product = new Product(1L, "Keyboard", 34, 1);
         products = List.of(
-                new Product(1, "Computer", 34, 2004),
-                new Product(2, "Mouse", 10, 1)
+                new Product(1L, "Computer", 34, 2004),
+                new Product(2L, "Mouse", 10, 1)
         );
     }
 
@@ -72,7 +72,7 @@ class ProductServiceImplTest {
     @Test
     @DisplayName("Return product by id - Found")
     void testShouldReturnTheProductsWhenTheGivenIdIsFound() {
-        when(productRepositoryMock.findById(1)).thenReturn(Optional.of(product));
+        when(productRepositoryMock.findById(1L)).thenReturn(Optional.of(product));
         var productDtos = currentInstance.findById(1).get();
         assertSame(productDtos.getProductId(), product.getProductId(), "Products should be the same");
         assertTrue(currentInstance.findById(1).isPresent(), "true");
@@ -80,13 +80,13 @@ class ProductServiceImplTest {
         assertNotEquals(234, currentInstance.findById(1)
                 .get()
                 .getProductId());
-        verify(productRepositoryMock, times(4)).findById(1);
+        verify(productRepositoryMock, times(4)).findById(1L);
     }
 
     @Test
     @DisplayName(" product by id - Not Found")
     void testShouldThrowExceptionsWhenTheGivenIdIsNotFound() {
-        when(productRepositoryMock.findById(1)).thenReturn(Optional.empty());
+        when(productRepositoryMock.findById(1L)).thenReturn(Optional.empty());
         // In the implementation, findById returns Optional.empty() instead of throwing if not found
         var result = currentInstance.findById(1);
         assertTrue(result.isEmpty());
@@ -95,8 +95,8 @@ class ProductServiceImplTest {
     @Test
     @DisplayName("create a new product - Success")
     void testShouldCreateNewProduct() {
-        ProductDto productDtoToCreate = new ProductDto(1, "keyboard", 10, null);
-        Product mockProduct = new Product(1, "keyboard", 10, 1);
+        ProductDto productDtoToCreate = new ProductDto(1L, "keyboard", 10, null);
+        Product mockProduct = new Product(1L, "keyboard", 10, 1);
         when(productRepositoryMock.save(any(Product.class))).thenReturn(mockProduct);
         ProductDto createdProductDto = currentInstance.save(productDtoToCreate);
 
@@ -111,8 +111,8 @@ class ProductServiceImplTest {
     @Test
     @DisplayName("update product - Success")
     void testShouldUpdateProduct() {
-        ProductDto updatedProductDto = new ProductDto(1, "new_keyboard", 20, 1);
-        when(productRepositoryMock.findById(1)).thenReturn(Optional.of(product));
+        ProductDto updatedProductDto = new ProductDto(1L, "new_keyboard", 20, 1);
+        when(productRepositoryMock.findById(1L)).thenReturn(Optional.of(product));
         when(productRepositoryMock.save(any(Product.class))).thenReturn(product);
         boolean updateResult = currentInstance.update(updatedProductDto);
         assertTrue(updateResult, "Update operation should return true");
@@ -126,7 +126,7 @@ class ProductServiceImplTest {
     @Test
     @DisplayName("delete product - Success")
     void testShouldDeleteProduct() {
-        Integer existingProductId = 1;
+        var existingProductId = 1L;
         when(productRepositoryMock.existsById(existingProductId)).thenReturn(true);
         boolean deleteResult = currentInstance.delete(existingProductId);
         assertTrue(deleteResult);
@@ -137,7 +137,7 @@ class ProductServiceImplTest {
     @Test
     @DisplayName("Delete product by id - Not Success")
     void testDeleteProductsThrowAnException() {
-        Integer nonExistingProductId = 2;
+        var nonExistingProductId = 2L;
         when(productRepositoryMock.existsById(nonExistingProductId)).thenReturn(false);
         ObjectWithIdNotFound exception =
                 assertThrows(ObjectWithIdNotFound.class, () -> currentInstance.delete(nonExistingProductId));
