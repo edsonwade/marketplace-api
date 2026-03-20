@@ -1,3 +1,0 @@
-docker login  -u edsonwade126
-
-pwd:dckr_pat_dwq3d8fAOVnoTs-SgoVfdlnEYD4

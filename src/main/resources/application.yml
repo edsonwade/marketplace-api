@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/marketplace_api}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/marketplace_api}
     username: ${POSTGRES_DB_USER:postgres}
     password: ${POSTGRES_DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -94,6 +94,19 @@ spring:
     listener:
       ack-mode: MANUAL_IMMEDIATE
       concurrency: 3
+
+  # ─── MAIL ─────────────────────────────────────────────────────────────────────
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
 
 application:
   security:
