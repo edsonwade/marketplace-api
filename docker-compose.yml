@@ -46,14 +46,14 @@ services:
     container_name: marketplace-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: marketplace_api
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
+      #- ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
     networks:
       - backend
     healthcheck:
@@ -218,7 +218,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - FLYWAY_URL=jdbc:postgresql://postgres:5432/marketplace_api
+      - FLYWAY_URL=jdbc:postgresql://postgres:5433/marketplace_api
       - FLYWAY_USER=postgres
       - FLYWAY_PASSWORD=postgres
       - FLYWAY_LOCATIONS=filesystem:/flyway/sql
