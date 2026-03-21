@@ -1,8 +1,7 @@
 # Global configuration
 global:
-  scrape_interval: 5s       # How often Prometheus scrapes metrics from targets
-  evaluation_interval: 5s   # How often Prometheus evaluates rules
-
+  scrape_interval: 5s
+  evaluation_interval: 5s
 
 alerting:
   alertmanagers:
@@ -14,29 +13,15 @@ rule_files: [ ]
 # Scrape configurations for different targets
 scrape_configs:
 
-  # Prometheus' own metrics
   - job_name: 'prometheus'
     scrape_interval: 5s
     static_configs:
-      - targets: [ 'localhost:9090' ]   # Prometheus exposes its own metrics here
+      - targets: [ 'localhost:9090' ]
 
-
-  - job_name: 'spring-boot-actuator'
+  - job_name: 'marketplace-service'
     metrics_path: '/actuator/prometheus'
     scrape_interval: 5s
     static_configs:
-      - targets: [ 'host.docker.internal:8080' ]
-
-  # PostgreSQL metrics via Postgres Exporter
-  - job_name: "postgres"
-    static_configs:
-      - targets: [ "postgres-exporter:9187" ]   # Postgres Exporter container
-
-  # MongoDB metrics via MongoDB Exporter
-  - job_name: "mongodb"
-    static_configs:
-      - targets: [ "mongodb-exporter:9216" ]   # MongoDB Exporter container
-
-
+      - targets: [ 'marketplace-service:8081' ]
 
 

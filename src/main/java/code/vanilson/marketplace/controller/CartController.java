@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/carts")
+@RequestMapping("/api/v1/carts")
 @Tag(name = "Cart Management", description = "APIs for managing shopping carts")
 public class CartController {
 

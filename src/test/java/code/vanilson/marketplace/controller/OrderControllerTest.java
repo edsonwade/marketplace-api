@@ -59,7 +59,7 @@ class OrderControllerTest {
         orderDto.setOrderId(1L);
         orderDto.setLocalDateTime(dateTime);
         when(orderService.findAllOrders()).thenReturn(List.of(orderDto));
-        mockMvc.perform(get("/api/orders"))
+        mockMvc.perform(get("/api/v1/orders"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }
@@ -68,7 +68,7 @@ class OrderControllerTest {
     @DisplayName("Get All Orders - Empty List")
     void testGetOrdersSuccessEmptyList() throws Exception {
         when(orderService.findAllOrders()).thenReturn(Collections.emptyList());
-        mockMvc.perform(get("/api/orders"))
+        mockMvc.perform(get("/api/v1/orders"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }
@@ -81,7 +81,7 @@ class OrderControllerTest {
         order.setOrderId(orderId);
         order.setLocalDateTime(LocalDateTime.now());
         when(orderService.findOrderById(orderId)).thenReturn(Optional.of(order));
-        mockMvc.perform(get("/api/orders/{id}", orderId))
+        mockMvc.perform(get("/api/v1/orders/{id}", orderId))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }
@@ -92,7 +92,7 @@ class OrderControllerTest {
         Long orderId = 1L;
         when(orderService.findOrderById(orderId))
                 .thenThrow(new ObjectWithIdNotFound(String.format("order with id %d not found", orderId)));
-        mockMvc.perform(get("/api/orders/{id}", orderId))
+        mockMvc.perform(get("/api/v1/orders/{id}", orderId))
                 .andExpect(status().isNotFound());
     }
 
@@ -108,7 +108,7 @@ class OrderControllerTest {
             savedOrder.setOrderId(1L);
             return savedOrder;
         });
-        mockMvc.perform(post("/api/orders")
+        mockMvc.perform(post("/api/v1/orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(orderDto)))
                 .andExpect(status().isCreated())
@@ -120,7 +120,7 @@ class OrderControllerTest {
     void testDeleteOrderNotFound() throws Exception {
         Long orderId = 1L;
         when(orderService.findOrderById(orderId)).thenReturn(Optional.empty());
-        mockMvc.perform(delete("/api/orders/{id}", orderId))
+        mockMvc.perform(delete("/api/v1/orders/{id}", orderId))
                 .andExpect(status().isNotFound());
     }
 
@@ -132,7 +132,7 @@ class OrderControllerTest {
         order.setOrderId(orderId);
         when(orderService.findOrderById(orderId)).thenReturn(Optional.of(order));
         when(orderService.deleteOrderById(orderId)).thenReturn(false);
-        mockMvc.perform(delete("/api/orders/{id}", orderId))
+        mockMvc.perform(delete("/api/v1/orders/{id}", orderId))
                 .andExpect(status().isInternalServerError());
     }
 }

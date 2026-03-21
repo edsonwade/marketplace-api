@@ -139,9 +139,8 @@ class AuthenticationServiceTest {
     void testAuthenticateSuccess() {
         when(rateLimitingService.resolveBucket(anyString())).thenReturn(mockBucket);
         when(mockBucket.tryConsume(1)).thenReturn(true);
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenReturn(new UsernamePasswordAuthenticationToken(testUser, null));
         when(repository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
         when(jwtService.generateToken(any(User.class))).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh-token");
         when(tokenRepository.findAllValidTokenByUser(any())).thenReturn(Collections.emptyList());
@@ -154,7 +153,7 @@ class AuthenticationServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
 
         verify(rateLimitingService, times(1)).resolveBucket("test@example.com");
-        verify(authenticationManager, times(1)).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(passwordEncoder, times(1)).matches("password123", "encodedPassword");
         verify(repository, times(1)).findByEmail("test@example.com");
     }
 
@@ -164,10 +163,8 @@ class AuthenticationServiceTest {
         when(mockBucket.tryConsume(1)).thenReturn(false);
 
         assertThatThrownBy(() -> authenticationService.authenticate(authRequest))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Too many login attempts");
-
-        verify(authenticationManager, never()).authenticate(any());
+                .isInstanceOf(org.springframework.security.authentication.BadCredentialsException.class)
+                .hasMessageContaining("auth.rate.limit");
     }
 
     @Test

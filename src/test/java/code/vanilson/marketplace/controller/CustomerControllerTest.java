@@ -43,7 +43,7 @@ class CustomerControllerTest {
     @DisplayName("Get All Customers")
     void testGetCustomers() throws Exception {
         when(customerService.findAllCustomers()).thenReturn(Collections.emptyList());
-        mockMvc.perform(get("/api/customers"))
+        mockMvc.perform(get("/api/v1/customers"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }
@@ -54,7 +54,7 @@ class CustomerControllerTest {
         Long customerId = 1L;
         CustomerDto customer = new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1");
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.of(customer));
-        mockMvc.perform(get("/api/customers/{id}", customerId))
+        mockMvc.perform(get("/api/v1/customers/{id}", customerId))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.name").value("John Doe"))
@@ -67,7 +67,7 @@ class CustomerControllerTest {
     void testCreateCustomer() throws Exception {
         CustomerDto newCustomer = new CustomerDto(1L, "test", "test@example.com", "test 1");
         when(customerService.saveCustomer(any(CustomerDto.class))).thenReturn(newCustomer);
-        mockMvc.perform(post("/api/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"New Customer\",\"email\":\"new@example.com\",\"address\":\"test 1\"}"))
                 .andExpect(status().isCreated())
@@ -83,7 +83,7 @@ class CustomerControllerTest {
         Long customerId = 1L;
         CustomerDto updatedCustomer = new CustomerDto(customerId, "Updated Name", "updated@example.com", "Updated Address");
         when(customerService.updateCustomer(eq(customerId), any(CustomerDto.class))).thenReturn(updatedCustomer);
-        mockMvc.perform(put("/api/customers/{id}", customerId)
+        mockMvc.perform(put("/api/v1/customers/{id}", customerId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Updated Name\",\"email\":\"updated@example.com\",\"address\":\"Updated Address\"}"))
                 .andExpect(status().isOk())
@@ -97,7 +97,7 @@ class CustomerControllerTest {
         CustomerDto customer = new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1");
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.of(customer));
         when(customerService.deleteCustomer(customerId)).thenReturn(true);
-        mockMvc.perform(delete("/api/customers/{id}", customerId))
+        mockMvc.perform(delete("/api/v1/customers/{id}", customerId))
                 .andExpect(status().isOk());
     }
 
@@ -106,7 +106,7 @@ class CustomerControllerTest {
     void testDeleteCustomerCustomerNotFound() throws Exception {
         Long customerId = 1L;
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.empty());
-        mockMvc.perform(delete("/api/customers/{id}", customerId))
+        mockMvc.perform(delete("/api/v1/customers/{id}", customerId))
                 .andExpect(status().isNotFound());
     }
 
@@ -117,7 +117,7 @@ class CustomerControllerTest {
         CustomerDto customer = new CustomerDto(customerId, "John Doe", "john@example.com", "Address 1");
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.of(customer));
         when(customerService.deleteCustomer(customerId)).thenReturn(false);
-        mockMvc.perform(delete("/api/customers/{id}", customerId))
+        mockMvc.perform(delete("/api/v1/customers/{id}", customerId))
                 .andExpect(status().isInternalServerError());
     }
 }

@@ -56,7 +56,7 @@ class PaymentControllerTest {
     void testGetAllPaymentsReturnsOk() throws Exception {
         when(paymentService.findAllPayments()).thenReturn(List.of(paymentDto));
 
-        mockMvc.perform(get("/api/payments"))
+        mockMvc.perform(get("/api/v1/payments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -67,7 +67,7 @@ class PaymentControllerTest {
     void testGetPaymentByIdReturnsPayment() throws Exception {
         when(paymentService.findPaymentById(1L)).thenReturn(Optional.of(paymentDto));
 
-        mockMvc.perform(get("/api/payments/1"))
+        mockMvc.perform(get("/api/v1/payments/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
 
@@ -78,7 +78,7 @@ class PaymentControllerTest {
     void testGetPaymentByIdReturnsNotFound() throws Exception {
         when(paymentService.findPaymentById(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/payments/999"))
+        mockMvc.perform(get("/api/v1/payments/999"))
                 .andExpect(status().isNotFound());
 
         verify(paymentService, times(1)).findPaymentById(999L);
@@ -88,7 +88,7 @@ class PaymentControllerTest {
     void testGetPaymentsByOrderIdReturnsOk() throws Exception {
         when(paymentService.findPaymentsByOrderId(1L)).thenReturn(List.of(paymentDto));
 
-        mockMvc.perform(get("/api/payments/order/1"))
+        mockMvc.perform(get("/api/v1/payments/order/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -99,7 +99,7 @@ class PaymentControllerTest {
     void testGetPaymentsByCustomerIdReturnsOk() throws Exception {
         when(paymentService.findPaymentsByCustomerId(1L)).thenReturn(List.of(paymentDto));
 
-        mockMvc.perform(get("/api/payments/customer/1"))
+        mockMvc.perform(get("/api/v1/payments/customer/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -110,7 +110,7 @@ class PaymentControllerTest {
     void testCreatePaymentReturnsCreated() throws Exception {
         when(paymentService.createPayment(any(PaymentDto.class))).thenReturn(paymentDto);
 
-        mockMvc.perform(post("/api/payments")
+        mockMvc.perform(post("/api/v1/payments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(paymentDto)))
                 .andExpect(status().isCreated())
@@ -123,7 +123,7 @@ class PaymentControllerTest {
     void testProcessPaymentReturnsOk() throws Exception {
         when(paymentService.processPayment(anyLong(), anyLong(), any(), any())).thenReturn(paymentDto);
 
-        mockMvc.perform(post("/api/payments/process")
+        mockMvc.perform(post("/api/v1/payments/process")
                         .param("orderId", "1")
                         .param("customerId", "1")
                         .param("paymentMethod", "CREDIT_CARD")
@@ -138,7 +138,7 @@ class PaymentControllerTest {
     void testUpdatePaymentStatusReturnsOk() throws Exception {
         when(paymentService.updatePaymentStatus(1L, "REFUNDED")).thenReturn(paymentDto);
 
-        mockMvc.perform(patch("/api/payments/1/status")
+        mockMvc.perform(patch("/api/v1/payments/1/status")
                         .param("status", "REFUNDED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
@@ -150,7 +150,7 @@ class PaymentControllerTest {
     void testDeletePaymentReturnsOk() throws Exception {
         when(paymentService.deletePayment(1L)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/payments/1"))
+        mockMvc.perform(delete("/api/v1/payments/1"))
                 .andExpect(status().isOk());
 
         verify(paymentService, times(1)).deletePayment(1L);
@@ -160,7 +160,7 @@ class PaymentControllerTest {
     void testDeletePaymentReturnsNotFound() throws Exception {
         when(paymentService.deletePayment(999L)).thenThrow(new ObjectWithIdNotFound("Payment not found"));
 
-        mockMvc.perform(delete("/api/payments/999"))
+        mockMvc.perform(delete("/api/v1/payments/999"))
                 .andExpect(status().isNotFound());
 
         verify(paymentService, times(1)).deletePayment(999L);
@@ -170,7 +170,7 @@ class PaymentControllerTest {
     void testGetPaymentMethodsByCustomerIdReturnsOk() throws Exception {
         when(paymentService.findPaymentMethodsByCustomerId(1L)).thenReturn(List.of(paymentMethodDto));
 
-        mockMvc.perform(get("/api/payments/methods/customer/1"))
+        mockMvc.perform(get("/api/v1/payments/methods/customer/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -181,7 +181,7 @@ class PaymentControllerTest {
     void testGetPaymentMethodByIdReturnsPaymentMethod() throws Exception {
         when(paymentService.findPaymentMethodById(1L)).thenReturn(Optional.of(paymentMethodDto));
 
-        mockMvc.perform(get("/api/payments/methods/1"))
+        mockMvc.perform(get("/api/v1/payments/methods/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
 
@@ -192,7 +192,7 @@ class PaymentControllerTest {
     void testGetPaymentMethodByIdReturnsNotFound() throws Exception {
         when(paymentService.findPaymentMethodById(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/payments/methods/999"))
+        mockMvc.perform(get("/api/v1/payments/methods/999"))
                 .andExpect(status().isNotFound());
 
         verify(paymentService, times(1)).findPaymentMethodById(999L);
@@ -202,7 +202,7 @@ class PaymentControllerTest {
     void testAddPaymentMethodReturnsCreated() throws Exception {
         when(paymentService.addPaymentMethod(any(PaymentMethodDto.class))).thenReturn(paymentMethodDto);
 
-        mockMvc.perform(post("/api/payments/methods")
+        mockMvc.perform(post("/api/v1/payments/methods")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(paymentMethodDto)))
                 .andExpect(status().isCreated())
@@ -215,7 +215,7 @@ class PaymentControllerTest {
     void testSetDefaultPaymentMethodReturnsOk() throws Exception {
         when(paymentService.setDefaultPaymentMethod(1L, 1L)).thenReturn(paymentMethodDto);
 
-        mockMvc.perform(put("/api/payments/methods/1/default")
+        mockMvc.perform(put("/api/v1/payments/methods/1/default")
                         .param("customerId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
@@ -227,7 +227,7 @@ class PaymentControllerTest {
     void testDeletePaymentMethodReturnsOk() throws Exception {
         when(paymentService.deletePaymentMethod(1L)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/payments/methods/1"))
+        mockMvc.perform(delete("/api/v1/payments/methods/1"))
                 .andExpect(status().isOk());
 
         verify(paymentService, times(1)).deletePaymentMethod(1L);
@@ -237,7 +237,7 @@ class PaymentControllerTest {
     void testDeletePaymentMethodReturnsNotFound() throws Exception {
         when(paymentService.deletePaymentMethod(999L)).thenThrow(new ObjectWithIdNotFound("Payment method not found"));
 
-        mockMvc.perform(delete("/api/payments/methods/999"))
+        mockMvc.perform(delete("/api/v1/payments/methods/999"))
                 .andExpect(status().isNotFound());
 
         verify(paymentService, times(1)).deletePaymentMethod(999L);

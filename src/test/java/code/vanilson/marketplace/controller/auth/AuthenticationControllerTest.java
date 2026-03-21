@@ -81,7 +81,7 @@ class AuthenticationControllerTest {
     }
 
     @Test
-    void testAuthenticateReturnsOk() throws Exception {
+    void testLoginReturnsOk() throws Exception {
         AuthenticationRequest request = AuthenticationRequest.builder()
                 .email("test@example.com")
                 .password("password123")
@@ -89,7 +89,7 @@ class AuthenticationControllerTest {
 
         when(service.authenticate(any(AuthenticationRequest.class))).thenReturn(authResponse);
 
-        mockMvc.perform(post("/api/v1/auth/authenticate")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -143,7 +143,7 @@ class AuthenticationControllerTest {
     }
 
     @Test
-    void testAuthenticateServiceCalledOnce() throws Exception {
+    void testLoginServiceCalledOnce() throws Exception {
         AuthenticationRequest request = AuthenticationRequest.builder()
                 .email("test@example.com")
                 .password("password123")
@@ -151,7 +151,7 @@ class AuthenticationControllerTest {
 
         when(service.authenticate(any(AuthenticationRequest.class))).thenReturn(authResponse);
 
-        mockMvc.perform(post("/api/v1/auth/authenticate")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());

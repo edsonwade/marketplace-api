@@ -12,7 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 @RestController
-@RequestMapping("/api/stocks")
+@RequestMapping("/api/v1/stocks")
 public class StockController {
 
     private static final Logger logger = LogManager.getLogger(StockController.class);

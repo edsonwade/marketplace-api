@@ -4,6 +4,8 @@ import code.vanilson.marketplace.config.JwtService;
 import code.vanilson.marketplace.controller.auth.AuthenticationRequest;
 import code.vanilson.marketplace.controller.auth.AuthenticationResponse;
 import code.vanilson.marketplace.controller.auth.RegisterRequest;
+import code.vanilson.marketplace.exception.EmailNotFoundException;
+import code.vanilson.marketplace.exception.IncorrectPasswordException;
 import code.vanilson.marketplace.model.ROLE;
 import code.vanilson.marketplace.model.Token;
 import code.vanilson.marketplace.model.User;
@@ -14,8 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -28,14 +29,14 @@ public class AuthenticationService {
     private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
     private final RateLimitingService rateLimitingService;
 
     public AuthenticationResponse register(RegisterRequest request) {
+        String roleStr = request.getRole() == null || request.getRole().isBlank() ? "USER" : request.getRole();
         var user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(ROLE.valueOf(request.getRole()))
+                .role(ROLE.valueOf(roleStr))
                 .status("ACTIVE")
                 .build();
         var savedUser = repository.save(user);
@@ -50,16 +51,16 @@ public class AuthenticationService {
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         if (!rateLimitingService.resolveBucket(request.getEmail()).tryConsume(1)) {
-            throw new RuntimeException("Too many login attempts");
+            throw new BadCredentialsException("auth.rate.limit");
         }
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
-        var user = repository.findByEmail(request.getEmail())
-                .orElseThrow();
+        var userOpt = repository.findByEmail(request.getEmail());
+        if (userOpt.isEmpty()) {
+            throw new EmailNotFoundException("auth.email.not.found", "EMAIL_NOT_FOUND");
+        }
+        var user = userOpt.get();
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new IncorrectPasswordException("auth.incorrect.password", "INCORRECT_PASSWORD");
+        }
         var jwtToken = jwtService.generateToken(user);
         var refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
@@ -85,9 +86,9 @@ public class AuthenticationService {
         var validUserTokens = tokenRepository.findAllValidTokenByUser(user.getId());
         if (validUserTokens.isEmpty())
             return;
-        validUserTokens.forEach(token -> {
-            token.setExpired(true);
-            token.setRevoked(true);
+        validUserTokens.forEach(t -> {
+            t.setExpired(true);
+            t.setRevoked(true);
         });
         tokenRepository.saveAll(validUserTokens);
     }

@@ -19,7 +19,7 @@ import java.net.URISyntaxException;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/customers")
+@RequestMapping("/api/v1/customers")
 @Tag(name = "Customer API", description = "API for managing customers")
 public class CustomerController {
 
