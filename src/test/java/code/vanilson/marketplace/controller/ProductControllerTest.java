@@ -49,7 +49,7 @@ class ProductControllerTest {
                         new ProductDto(1L, "keyboard", 10, 1),
                         new ProductDto(2L, "Mouse", 10, 1)
                 ));
-        mockMvc.perform(get("/api/products"))
+        mockMvc.perform(get("/api/v1/products"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.size()").value(2))
@@ -61,10 +61,10 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/products/{id} - Found")
+    @DisplayName("GET /api/v1/products/{id} - Found")
     void testGetProductByIdSuccess() throws Exception {
         when(productService.findById(1L)).thenReturn(Optional.of(product));
-        mockMvc.perform(get("/api/products/{id}", 1))
+        mockMvc.perform(get("/api/v1/products/{id}", 1))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.productId").value(1))
@@ -75,10 +75,10 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/products/{id} - Not Found")
+    @DisplayName("GET /api/v1/products/{id} - Not Found")
     void testGetProductByIdNotFound() throws Exception {
         when(productService.findById(1L)).thenReturn(Optional.empty());
-        mockMvc.perform(get("/api/products/{id}", 1))
+        mockMvc.perform(get("/api/v1/products/{id}", 1))
                 .andExpect(status().isNotFound());
     }
 
@@ -88,7 +88,7 @@ class ProductControllerTest {
         ProductDto postProduct = new ProductDto("keyboard", 10);
         ProductDto mockProduct = new ProductDto(1L, "keyboard", 10, 1);
         when(productService.save(any())).thenReturn(mockProduct);
-        mockMvc.perform(post("/api/products")
+        mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(postProduct)))
                 .andExpect(status().isCreated())
@@ -101,13 +101,13 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/products/{id} - Success")
+    @DisplayName("PUT /api/v1/products/{id} - Success")
     void testPuttUpdateProductSuccess() throws Exception {
         ProductDto putProduct = new ProductDto("keyboard", 10);
         ProductDto mockProduct = new ProductDto(1L, "keyboard", 10, 1);
         when(productService.findById(1L)).thenReturn(Optional.of(mockProduct));
         when(productService.update(any())).thenReturn(true);
-        mockMvc.perform(put("/api/products/{id}", 1)
+        mockMvc.perform(put("/api/v1/products/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 1)
                         .content(objectMapper.writeValueAsString(putProduct)))
@@ -120,20 +120,20 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/products/{id} - Not Found")
+    @DisplayName("PUT /api/v1/products/{id} - Not Found")
     void testPutProductNotFound() throws Exception {
         when(productService.findById(1L)).thenReturn(Optional.empty());
-        mockMvc.perform(get("/api/products/{id}", 1))
+        mockMvc.perform(get("/api/v1/products/{id}", 1))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("PUT /api/products/{id} -Conflict")
+    @DisplayName("PUT /api/v1/products/{id} -Conflict")
     void testProductPutVersionMisMatch() throws Exception {
         ProductDto putProduct = new ProductDto("keyboard", 10);
         ProductDto mockProduct = new ProductDto(1L, "keyboard", 10, 2);
         when(productService.findById(1L)).thenReturn(Optional.of(mockProduct));
-        mockMvc.perform(put("/api/products/{id}", 1)
+        mockMvc.perform(put("/api/v1/products/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.IF_MATCH, 1)
                         .content(objectMapper.writeValueAsString(putProduct)))
@@ -141,29 +141,29 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/products/{id} - Found")
+    @DisplayName("DELETE /api/v1/products/{id} - Found")
     void testDeleteProductByIdSuccess() throws Exception {
         when(productService.findById(1L)).thenReturn(Optional.of(product));
         when(productService.delete(1L)).thenReturn(true);
-        mockMvc.perform(delete("/api/products/{id}", 1))
+        mockMvc.perform(delete("/api/v1/products/{id}", 1))
                 .andExpect(status().isOk());
         verify(productService, times(1)).delete(1L);
     }
 
     @Test
-    @DisplayName("DELETE /api/products/{id} - Not Found")
+    @DisplayName("DELETE /api/v1/products/{id} - Not Found")
     void testDeleteProductByIdNotFound() throws Exception {
         when(productService.findById(1L)).thenReturn(Optional.empty());
-        mockMvc.perform(delete("/api/products/{id}", 1))
+        mockMvc.perform(delete("/api/v1/products/{id}", 1))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("DELETE /api/products/{id} - Failure")
+    @DisplayName("DELETE /api/v1/products/{id} - Failure")
     void testDeleteProductFailure() throws Exception {
         when(productService.findById(1L)).thenReturn(Optional.of(product));
         when(productService.delete(1L)).thenReturn(false);
-        mockMvc.perform(delete("/api/products/{id}", 1))
+        mockMvc.perform(delete("/api/v1/products/{id}", 1))
                 .andExpect(status().isInternalServerError());
     }
 }

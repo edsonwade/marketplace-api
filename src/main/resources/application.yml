@@ -90,7 +90,7 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
       properties:
-        spring.json.trusted.packages: "code.with.vanilson.marketplace.*"
+        spring.json.trusted.packages: "code.vanilson.marketplace.*"
     listener:
       ack-mode: MANUAL_IMMEDIATE
       concurrency: 3

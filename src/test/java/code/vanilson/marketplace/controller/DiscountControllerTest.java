@@ -59,7 +59,7 @@ class DiscountControllerTest {
     void testGetAllDiscountsReturnsOk() throws Exception {
         when(discountService.findAllDiscounts()).thenReturn(List.of(discountDto));
 
-        mockMvc.perform(get("/api/discounts"))
+        mockMvc.perform(get("/api/v1/discounts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -70,7 +70,7 @@ class DiscountControllerTest {
     void testGetActiveDiscountsReturnsOk() throws Exception {
         when(discountService.findActiveDiscounts()).thenReturn(List.of(discountDto));
 
-        mockMvc.perform(get("/api/discounts/active"))
+        mockMvc.perform(get("/api/v1/discounts/active"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -81,7 +81,7 @@ class DiscountControllerTest {
     void testGetDiscountByIdReturnsDiscount() throws Exception {
         when(discountService.findDiscountById(1L)).thenReturn(Optional.of(discountDto));
 
-        mockMvc.perform(get("/api/discounts/1"))
+        mockMvc.perform(get("/api/v1/discounts/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
 
@@ -92,7 +92,7 @@ class DiscountControllerTest {
     void testGetDiscountByIdReturnsNotFound() throws Exception {
         when(discountService.findDiscountById(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/discounts/999"))
+        mockMvc.perform(get("/api/v1/discounts/999"))
                 .andExpect(status().isNotFound());
 
         verify(discountService, times(1)).findDiscountById(999L);
@@ -102,7 +102,7 @@ class DiscountControllerTest {
     void testCreateDiscountReturnsCreated() throws Exception {
         when(discountService.createDiscount(any(DiscountDto.class))).thenReturn(discountDto);
 
-        mockMvc.perform(post("/api/discounts")
+        mockMvc.perform(post("/api/v1/discounts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(discountDto)))
                 .andExpect(status().isCreated())
@@ -115,7 +115,7 @@ class DiscountControllerTest {
     void testUpdateDiscountReturnsOk() throws Exception {
         when(discountService.updateDiscount(any(DiscountDto.class))).thenReturn(discountDto);
 
-        mockMvc.perform(put("/api/discounts/1")
+        mockMvc.perform(put("/api/v1/discounts/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(discountDto)))
                 .andExpect(status().isOk())
@@ -128,7 +128,7 @@ class DiscountControllerTest {
     void testDeleteDiscountReturnsOk() throws Exception {
         when(discountService.deleteDiscount(1L)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/discounts/1"))
+        mockMvc.perform(delete("/api/v1/discounts/1"))
                 .andExpect(status().isOk());
 
         verify(discountService, times(1)).deleteDiscount(1L);
@@ -138,7 +138,7 @@ class DiscountControllerTest {
     void testDeleteDiscountReturnsNotFound() throws Exception {
         when(discountService.deleteDiscount(999L)).thenThrow(new ObjectWithIdNotFound("Discount not found"));
 
-        mockMvc.perform(delete("/api/discounts/999"))
+        mockMvc.perform(delete("/api/v1/discounts/999"))
                 .andExpect(status().isNotFound());
 
         verify(discountService, times(1)).deleteDiscount(999L);
@@ -148,7 +148,7 @@ class DiscountControllerTest {
     void testGetAllCouponsReturnsOk() throws Exception {
         when(discountService.findAllCoupons()).thenReturn(List.of(couponDto));
 
-        mockMvc.perform(get("/api/discounts/coupons"))
+        mockMvc.perform(get("/api/v1/discounts/coupons"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -159,7 +159,7 @@ class DiscountControllerTest {
     void testGetActiveCouponsReturnsOk() throws Exception {
         when(discountService.findActiveCoupons()).thenReturn(List.of(couponDto));
 
-        mockMvc.perform(get("/api/discounts/coupons/active"))
+        mockMvc.perform(get("/api/v1/discounts/coupons/active"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -170,7 +170,7 @@ class DiscountControllerTest {
     void testGetCouponByIdReturnsCoupon() throws Exception {
         when(discountService.findCouponById(1L)).thenReturn(Optional.of(couponDto));
 
-        mockMvc.perform(get("/api/discounts/coupons/1"))
+        mockMvc.perform(get("/api/v1/discounts/coupons/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
 
@@ -181,7 +181,7 @@ class DiscountControllerTest {
     void testGetCouponByIdReturnsNotFound() throws Exception {
         when(discountService.findCouponById(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/discounts/coupons/999"))
+        mockMvc.perform(get("/api/v1/discounts/coupons/999"))
                 .andExpect(status().isNotFound());
 
         verify(discountService, times(1)).findCouponById(999L);
@@ -191,7 +191,7 @@ class DiscountControllerTest {
     void testGetCouponByCodeReturnsCoupon() throws Exception {
         when(discountService.findCouponByCode("SUMMER10")).thenReturn(Optional.of(couponDto));
 
-        mockMvc.perform(get("/api/discounts/coupons/code/SUMMER10"))
+        mockMvc.perform(get("/api/v1/discounts/coupons/code/SUMMER10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUMMER10"));
 
@@ -202,7 +202,7 @@ class DiscountControllerTest {
     void testGetCouponByCodeReturnsNotFound() throws Exception {
         when(discountService.findCouponByCode("INVALID")).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/discounts/coupons/code/INVALID"))
+        mockMvc.perform(get("/api/v1/discounts/coupons/code/INVALID"))
                 .andExpect(status().isNotFound());
 
         verify(discountService, times(1)).findCouponByCode("INVALID");
@@ -212,7 +212,7 @@ class DiscountControllerTest {
     void testCreateCouponReturnsCreated() throws Exception {
         when(discountService.createCoupon(any(CouponDto.class), eq(1L))).thenReturn(couponDto);
 
-        mockMvc.perform(post("/api/discounts/coupons")
+        mockMvc.perform(post("/api/v1/discounts/coupons")
                         .param("discountId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(couponDto)))
@@ -226,7 +226,7 @@ class DiscountControllerTest {
     void testUpdateCouponReturnsOk() throws Exception {
         when(discountService.updateCoupon(any(CouponDto.class))).thenReturn(couponDto);
 
-        mockMvc.perform(put("/api/discounts/coupons/1")
+        mockMvc.perform(put("/api/v1/discounts/coupons/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(couponDto)))
                 .andExpect(status().isOk())
@@ -239,7 +239,7 @@ class DiscountControllerTest {
     void testDeleteCouponReturnsOk() throws Exception {
         when(discountService.deleteCoupon(1L)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/discounts/coupons/1"))
+        mockMvc.perform(delete("/api/v1/discounts/coupons/1"))
                 .andExpect(status().isOk());
 
         verify(discountService, times(1)).deleteCoupon(1L);
@@ -249,7 +249,7 @@ class DiscountControllerTest {
     void testDeleteCouponReturnsNotFound() throws Exception {
         when(discountService.deleteCoupon(999L)).thenThrow(new ObjectWithIdNotFound("Coupon not found"));
 
-        mockMvc.perform(delete("/api/discounts/coupons/999"))
+        mockMvc.perform(delete("/api/v1/discounts/coupons/999"))
                 .andExpect(status().isNotFound());
 
         verify(discountService, times(1)).deleteCoupon(999L);
@@ -259,7 +259,7 @@ class DiscountControllerTest {
     void testValidateCouponReturnsOk() throws Exception {
         when(discountService.validateCoupon("SUMMER10")).thenReturn(true);
 
-        mockMvc.perform(post("/api/discounts/coupons/validate")
+        mockMvc.perform(post("/api/v1/discounts/coupons/validate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("code", "SUMMER10"))))
                 .andExpect(status().isOk())
@@ -273,7 +273,7 @@ class DiscountControllerTest {
         BigDecimal discountAmount = BigDecimal.valueOf(10);
         when(discountService.applyCoupon("SUMMER10", BigDecimal.valueOf(100), 1L)).thenReturn(discountAmount);
 
-        mockMvc.perform(post("/api/discounts/coupons/apply")
+        mockMvc.perform(post("/api/v1/discounts/coupons/apply")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "code", "SUMMER10",
@@ -290,7 +290,7 @@ class DiscountControllerTest {
         when(discountService.applyCoupon(anyString(), any(BigDecimal.class), anyLong()))
                 .thenThrow(new IllegalStateException("Coupon expired"));
 
-        mockMvc.perform(post("/api/discounts/coupons/apply")
+        mockMvc.perform(post("/api/v1/discounts/coupons/apply")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "code", "EXPIRED",

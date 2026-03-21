@@ -14,7 +14,7 @@ import java.net.URISyntaxException;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/orderItems")
+@RequestMapping("/api/v1/order-items")
 public class OrderItemController {
 
     public static final String ORDER = "/orderItems/";

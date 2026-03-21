@@ -14,7 +14,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/api/v1/payments")
 public class PaymentController {
 
     private static final Logger logger = LogManager.getLogger(PaymentController.class);

@@ -52,7 +52,7 @@ class CartControllerTest {
     void testGetAllCartsReturnsOk() throws Exception {
         when(cartService.findAllCarts()).thenReturn(List.of(cartDto));
 
-        mockMvc.perform(get("/api/carts"))
+        mockMvc.perform(get("/api/v1/carts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
 
@@ -63,7 +63,7 @@ class CartControllerTest {
     void testGetCartByIdReturnsCart() throws Exception {
         when(cartService.findCartById(1L)).thenReturn(Optional.of(cartDto));
 
-        mockMvc.perform(get("/api/carts/1"))
+        mockMvc.perform(get("/api/v1/carts/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
 
@@ -74,7 +74,7 @@ class CartControllerTest {
     void testGetCartByIdReturnsNotFound() throws Exception {
         when(cartService.findCartById(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/carts/999"))
+        mockMvc.perform(get("/api/v1/carts/999"))
                 .andExpect(status().isNotFound());
 
         verify(cartService, times(1)).findCartById(999L);
@@ -84,7 +84,7 @@ class CartControllerTest {
     void testGetCartByCustomerIdReturnsCart() throws Exception {
         when(cartService.findActiveCartByCustomerId(1L)).thenReturn(Optional.of(cartDto));
 
-        mockMvc.perform(get("/api/carts/customer/1"))
+        mockMvc.perform(get("/api/v1/carts/customer/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customerId").value(1));
 
@@ -95,7 +95,7 @@ class CartControllerTest {
     void testGetCartByCustomerIdReturnsNotFound() throws Exception {
         when(cartService.findActiveCartByCustomerId(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/carts/customer/999"))
+        mockMvc.perform(get("/api/v1/carts/customer/999"))
                 .andExpect(status().isNotFound());
 
         verify(cartService, times(1)).findActiveCartByCustomerId(999L);
@@ -105,7 +105,7 @@ class CartControllerTest {
     void testCreateCartReturnsCreated() throws Exception {
         when(cartService.createCart(anyLong())).thenReturn(cartDto);
 
-        mockMvc.perform(post("/api/carts")
+        mockMvc.perform(post("/api/v1/carts")
                         .param("customerId", "1"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1));
@@ -117,7 +117,7 @@ class CartControllerTest {
     void testAddItemToCartReturnsOk() throws Exception {
         when(cartService.addItemToCart(anyLong(), any(CartItemDto.class))).thenReturn(cartDto);
 
-        mockMvc.perform(post("/api/carts/items")
+        mockMvc.perform(post("/api/v1/carts/items")
                         .param("customerId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(cartItemDto)))
@@ -130,7 +130,7 @@ class CartControllerTest {
     void testUpdateCartItemQuantityReturnsOk() throws Exception {
         when(cartService.updateCartItemQuantity(anyLong(), anyLong(), any(Integer.class))).thenReturn(cartDto);
 
-        mockMvc.perform(put("/api/carts/items/1")
+        mockMvc.perform(put("/api/v1/carts/items/1")
                         .param("customerId", "1")
                         .param("quantity", "5"))
                 .andExpect(status().isOk());
@@ -142,7 +142,7 @@ class CartControllerTest {
     void testRemoveItemFromCartReturnsOk() throws Exception {
         when(cartService.removeItemFromCart(anyLong(), anyLong())).thenReturn(cartDto);
 
-        mockMvc.perform(delete("/api/carts/items/1")
+        mockMvc.perform(delete("/api/v1/carts/items/1")
                         .param("customerId", "1"))
                 .andExpect(status().isOk());
 
@@ -153,7 +153,7 @@ class CartControllerTest {
     void testClearCartReturnsOk() throws Exception {
         when(cartService.clearCart(anyLong())).thenReturn(cartDto);
 
-        mockMvc.perform(delete("/api/carts/clear")
+        mockMvc.perform(delete("/api/v1/carts/clear")
                         .param("customerId", "1"))
                 .andExpect(status().isOk());
 
@@ -165,7 +165,7 @@ class CartControllerTest {
         CartDto checkedOutCart = new CartDto(1L, 1L, "CHECKED_OUT");
         when(cartService.checkout(anyLong())).thenReturn(checkedOutCart);
 
-        mockMvc.perform(post("/api/carts/checkout")
+        mockMvc.perform(post("/api/v1/carts/checkout")
                         .param("customerId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CHECKED_OUT"));
@@ -177,7 +177,7 @@ class CartControllerTest {
     void testCheckoutReturnsBadRequestWhenEmptyCart() throws Exception {
         when(cartService.checkout(anyLong())).thenThrow(new IllegalStateException("Cannot checkout empty cart"));
 
-        mockMvc.perform(post("/api/carts/checkout")
+        mockMvc.perform(post("/api/v1/carts/checkout")
                         .param("customerId", "1"))
                 .andExpect(status().isBadRequest());
 
@@ -188,7 +188,7 @@ class CartControllerTest {
     void testDeleteCartReturnsOk() throws Exception {
         when(cartService.deleteCart(1L)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/carts/1"))
+        mockMvc.perform(delete("/api/v1/carts/1"))
                 .andExpect(status().isOk());
 
         verify(cartService, times(1)).deleteCart(1L);
@@ -198,7 +198,7 @@ class CartControllerTest {
     void testDeleteCartReturnsNotFound() throws Exception {
         when(cartService.deleteCart(999L)).thenThrow(new RuntimeException("Not found"));
 
-        mockMvc.perform(delete("/api/carts/999"))
+        mockMvc.perform(delete("/api/v1/carts/999"))
                 .andExpect(status().isNotFound());
 
         verify(cartService, times(1)).deleteCart(999L);
