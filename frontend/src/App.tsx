@@ -5,10 +5,11 @@ import { ProtectedRoute, GuestRoute } from './hooks/ProtectedRoute';
 import { Layout } from './components/layout';
 import { FullPageSpinner } from './components/ui/Spinner';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastContainer } from './components/notifications/Toast';
 import { useNotificationContext } from './contexts/NotificationContext';
+import { AuthInitializer } from './components/AuthInitializer';
 
-/* ---- Lazy pages ---- */
 const LoginPage     = lazy(() => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage  = lazy(() => import('./pages/auth/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })));
@@ -21,7 +22,6 @@ const DiscountsPage = lazy(() => import('./pages/discounts/DiscountsPage').then(
 const StocksPage    = lazy(() => import('./pages/stocks/StocksPage').then(m => ({ default: m.StocksPage })));
 const SettingsPage  = lazy(() => import('./pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
 
-/* ---- Toast bridge (needs context) ---- */
 const NotificationToaster = () => {
   const { notifications, removeNotification } = useNotificationContext();
   return <ToastContainer notifications={notifications} onDismiss={removeNotification} />;
@@ -29,45 +29,39 @@ const NotificationToaster = () => {
 
 function App() {
   return (
-    <QueryProvider>
-      <NotificationProvider>
-        <BrowserRouter>
-          <Suspense fallback={<FullPageSpinner />}>
-            <Routes>
-              {/* Guest routes */}
-              <Route path="/login" element={
-                <GuestRoute><LoginPage /></GuestRoute>
-              } />
-              <Route path="/register" element={
-                <GuestRoute><RegisterPage /></GuestRoute>
-              } />
+    <ThemeProvider>
+      <QueryProvider>
+        <NotificationProvider>
+          {/* AuthInitializer silently restores the access token before rendering */}
+          <AuthInitializer>
+            <BrowserRouter>
+              <Suspense fallback={<FullPageSpinner />}>
+                <Routes>
+                  <Route path="/login"    element={<GuestRoute><LoginPage /></GuestRoute>} />
+                  <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
 
-              {/* Protected routes */}
-              <Route element={
-                <ProtectedRoute><Layout /></ProtectedRoute>
-              }>
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/products"  element={<ProductsPage />} />
-                <Route path="/cart"      element={<CartPage />} />
-                <Route path="/orders"    element={<OrdersPage />} />
-                <Route path="/customers" element={<CustomersPage />} />
-                <Route path="/payments"  element={<PaymentsPage />} />
-                <Route path="/discounts" element={<DiscountsPage />} />
-                <Route path="/stocks"    element={<StocksPage />} />
-                <Route path="/settings"  element={<SettingsPage />} />
-              </Route>
+                  <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/products"  element={<ProductsPage />} />
+                    <Route path="/cart"      element={<CartPage />} />
+                    <Route path="/orders"    element={<OrdersPage />} />
+                    <Route path="/customers" element={<CustomersPage />} />
+                    <Route path="/payments"  element={<PaymentsPage />} />
+                    <Route path="/discounts" element={<DiscountsPage />} />
+                    <Route path="/stocks"    element={<StocksPage />} />
+                    <Route path="/settings"  element={<SettingsPage />} />
+                  </Route>
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-
-        {/* Global toast notifications */}
-        <NotificationToaster />
-      </NotificationProvider>
-    </QueryProvider>
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+            <NotificationToaster />
+          </AuthInitializer>
+        </NotificationProvider>
+      </QueryProvider>
+    </ThemeProvider>
   );
 }
 

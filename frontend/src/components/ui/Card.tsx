@@ -7,17 +7,12 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className = '', variant = 'default', children, ...props }, ref) => {
     const variants = {
-      default:   'bg-white border border-slate-200 shadow-sm',
-      bordered:  'bg-white border-2 border-slate-200',
-      elevated:  'bg-white border border-slate-200 shadow-md',
+      default:  'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm',
+      bordered: 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600',
+      elevated: 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md',
     };
-
     return (
-      <div
-        ref={ref}
-        className={`rounded-xl overflow-hidden ${variants[variant]} ${className}`}
-        {...props}
-      >
+      <div ref={ref} className={`rounded-xl overflow-hidden ${variants[variant]} ${className}`} {...props}>
         {children}
       </div>
     );
@@ -27,11 +22,7 @@ Card.displayName = 'Card';
 
 export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className = '', children, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={`px-5 py-4 border-b border-slate-100 flex items-center justify-between ${className}`}
-      {...props}
-    >
+    <div ref={ref} className={`px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 ${className}`} {...props}>
       {children}
     </div>
   )
@@ -40,20 +31,14 @@ CardHeader.displayName = 'CardHeader';
 
 export const CardBody = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className = '', children, ...props }, ref) => (
-    <div ref={ref} className={`px-5 py-4 ${className}`} {...props}>
-      {children}
-    </div>
+    <div ref={ref} className={`px-5 py-4 ${className}`} {...props}>{children}</div>
   )
 );
 CardBody.displayName = 'CardBody';
 
 export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className = '', children, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={`px-5 py-3 border-t border-slate-100 bg-slate-50 ${className}`}
-      {...props}
-    >
+    <div ref={ref} className={`px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 ${className}`} {...props}>
       {children}
     </div>
   )
