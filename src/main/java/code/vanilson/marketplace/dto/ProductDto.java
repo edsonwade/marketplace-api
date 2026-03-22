@@ -23,6 +23,7 @@ public class ProductDto implements Serializable {
     @NotNull
     @Size(max = 1000)
     Integer quantity;
+    java.math.BigDecimal price;
     Integer version;
 
     public ProductDto() {

@@ -1,14 +1,17 @@
 package code.vanilson.marketplace.service;
 
+
 import code.vanilson.marketplace.config.JwtService;
 import code.vanilson.marketplace.controller.auth.AuthenticationRequest;
 import code.vanilson.marketplace.controller.auth.AuthenticationResponse;
 import code.vanilson.marketplace.controller.auth.RegisterRequest;
 import code.vanilson.marketplace.exception.EmailNotFoundException;
 import code.vanilson.marketplace.exception.IncorrectPasswordException;
+import code.vanilson.marketplace.model.Customer;
 import code.vanilson.marketplace.model.ROLE;
 import code.vanilson.marketplace.model.Token;
 import code.vanilson.marketplace.model.User;
+import code.vanilson.marketplace.repository.CustomerRepository;
 import code.vanilson.marketplace.repository.TokenRepository;
 import code.vanilson.marketplace.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +33,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RateLimitingService rateLimitingService;
+    private final CustomerRepository customerRepository;
 
     public AuthenticationResponse register(RegisterRequest request) {
         String roleStr = request.getRole() == null || request.getRole().isBlank() ? "USER" : request.getRole();
@@ -40,6 +44,16 @@ public class AuthenticationService {
                 .status("ACTIVE")
                 .build();
         var savedUser = repository.save(user);
+
+        // Auto-create a Customer record so /customers/me works immediately after register
+        if (customerRepository.findByEmail(request.getEmail()).isEmpty()) {
+            Customer customer = new Customer();
+            customer.setEmail(request.getEmail());
+            customer.setName(request.getEmail().split("@")[0]); // use email prefix as default name
+            customer.setAddress("");
+            customerRepository.save(customer);
+        }
+
         var jwtToken = jwtService.generateToken(user);
         var refreshToken = jwtService.generateRefreshToken(user);
         saveUserToken(savedUser, jwtToken);

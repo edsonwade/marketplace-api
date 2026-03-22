@@ -35,11 +35,22 @@ export const authService = {
 };
 
 export const useLogin = () => {
+  const { setAuth, setUser } = useAuthStore();
   return useMutation({
     mutationFn: (credentials: AuthenticationRequest) => authService.login(credentials),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setAccessToken(data.access_token);
       cookies.set('refresh_token', data.refresh_token, 7);
+      // Resolve the Customer record linked to this user email
+      try {
+        const res = await apiClient.get('/api/v1/customers/me');
+        const customer = res.data;
+        setAuth(customer);
+        setUser(customer);
+      } catch {
+        // No customer record yet — user is authenticated but has no customer profile
+        setAuth();
+      }
     },
   });
 };

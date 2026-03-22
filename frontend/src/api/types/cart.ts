@@ -1,5 +1,6 @@
-export interface CartItem {
+export interface CartItemDto {
   id?: number;
+  cartItemId?: number;
   productId: number;
   productName: string;
   quantity: number;
@@ -11,21 +12,25 @@ export interface CartItem {
   version?: number;
 }
 
-export interface Cart {
+export interface CartDto {
   id: number;
+  cartId?: number;
   customerId: number;
   status: string;
-  items: CartItem[];
+  items: CartItemDto[];
   totalAmount: number;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
+  createdAt?: string;
+  updatedAt?: string;
+  version?: number;
 }
+
+// Legacy aliases kept for backwards compat
+export type CartItem = CartItemDto;
+export type Cart     = CartDto;
 
 export interface AddToCartRequest {
   productId: number;
   quantity: number;
-  price: number;
 }
 
 export interface UpdateCartItemRequest {

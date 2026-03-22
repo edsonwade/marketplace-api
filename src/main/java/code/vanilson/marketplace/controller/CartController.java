@@ -2,6 +2,7 @@ package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.CartDto;
 import code.vanilson.marketplace.dto.CartItemDto;
+import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -104,6 +105,21 @@ public class CartController {
         try {
             CartDto cart = cartService.checkout(customerId);
             return ResponseEntity.ok().body(cart);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * Checkout cart AND create an Order in one call.
+     * Frontend uses this to go from Cart → Payment.
+     */
+    @PostMapping("/checkout-order")
+    public ResponseEntity<?> checkoutAndCreateOrder(@RequestParam Long customerId) {
+        logger.info("Checkout + create order for customer: {}", customerId);
+        try {
+            OrderDto order = cartService.checkoutAndCreateOrder(customerId);
+            return ResponseEntity.ok().body(order);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

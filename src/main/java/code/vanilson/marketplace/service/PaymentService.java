@@ -4,8 +4,10 @@ import code.vanilson.marketplace.dto.PaymentDto;
 import code.vanilson.marketplace.dto.PaymentMethodDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
 import code.vanilson.marketplace.mapper.PaymentMapper;
+import code.vanilson.marketplace.model.Order;
 import code.vanilson.marketplace.model.Payment;
 import code.vanilson.marketplace.model.PaymentMethod;
+import code.vanilson.marketplace.repository.OrderRepository;
 import code.vanilson.marketplace.repository.PaymentMethodRepository;
 import code.vanilson.marketplace.repository.PaymentRepository;
 import org.apache.logging.log4j.LogManager;
@@ -24,10 +26,13 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final OrderRepository orderRepository;
 
-    public PaymentService(PaymentRepository paymentRepository, PaymentMethodRepository paymentMethodRepository) {
+    public PaymentService(PaymentRepository paymentRepository, PaymentMethodRepository paymentMethodRepository,
+                          OrderRepository orderRepository) {
         this.paymentRepository = paymentRepository;
         this.paymentMethodRepository = paymentMethodRepository;
+        this.orderRepository = orderRepository;
     }
 
     public List<PaymentDto> findAllPayments() {
@@ -68,23 +73,39 @@ public class PaymentService {
     public PaymentDto processPayment(Long orderId, Long customerId, String paymentMethod, String token) {
         logger.info("Processing payment for order: {}, customer: {}, method: {}", orderId, customerId, paymentMethod);
 
+        // Fetch the order to get the total amount
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ObjectWithIdNotFound("Order not found with id: " + orderId));
+
+        // Calculate amount from order items (product.price * quantity)
+        java.math.BigDecimal amount = order.getOrderItems().stream()
+                .map(item -> {
+                    java.math.BigDecimal price = item.getProduct() != null && item.getProduct().getPrice() != null
+                            ? item.getProduct().getPrice()
+                            : java.math.BigDecimal.valueOf(9.99);
+                    return price.multiply(java.math.BigDecimal.valueOf(item.getQuantity()));
+                })
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
         Payment payment = new Payment();
         payment.setOrderId(orderId);
         payment.setCustomerId(customerId);
         payment.setPaymentMethod(paymentMethod);
         payment.setPaymentStatus("PROCESSING");
+        payment.setAmount(amount);
+        payment.setCurrency("USD");
         payment.setTransactionId(UUID.randomUUID().toString());
-        
+
         Payment saved = paymentRepository.save(payment);
-        
+
         boolean success = processWithGateway(payment);
-        
+
         if (success) {
             saved.setPaymentStatus("COMPLETED");
-            logger.info("Payment completed successfully: {}", saved.getPaymentId());
+            logger.info("Payment COMPLETED for order {}: amount={} {}", orderId, amount, "USD");
         } else {
             saved.setPaymentStatus("FAILED");
-            logger.warn("Payment failed: {}", saved.getPaymentId());
+            logger.warn("Payment FAILED for order {}", orderId);
         }
 
         Payment completed = paymentRepository.save(saved);

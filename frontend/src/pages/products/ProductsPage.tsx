@@ -10,7 +10,8 @@ import { Table, TableHead, TableBody, TableRow, TableHeadCell, TableCell } from 
 import { usePaginatedData } from '../../hooks/usePaginatedData';
 import { Paginator } from '../../hooks/Paginator';
 import { useProducts, useCreateProduct, useDeleteProduct, useUpdateProduct } from '../../services';
-import { useCartStore } from '../../store';
+import { useAddItemToCart } from '../../services/cart/service';
+import { useAuthStore } from '../../store';
 import type { Product } from '../../api/types';
 
 type StatusFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
@@ -24,10 +25,13 @@ export const ProductsPage = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const { data: products, isLoading, error } = useProducts();
-  const createProduct = useCreateProduct();
-  const deleteProduct = useDeleteProduct();
-  const updateProduct = useUpdateProduct();
-  const { addItem } = useCartStore();
+  const createProduct  = useCreateProduct();
+  const deleteProduct  = useDeleteProduct();
+  const updateProduct  = useUpdateProduct();
+  const addToCart      = useAddItemToCart();
+  const { user }       = useAuthStore();
+  const customerId     = user?.customerId ? Number(user.customerId) : undefined;
+  const [cartMsg, setCartMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   // Apply status filter before pagination
   const filtered = (products ?? []).filter((p) => {
@@ -61,6 +65,18 @@ export const ProductsPage = () => {
     setDeleteId(null);
   };
 
+  const handleAddToCart = async (product: Product) => {
+    if (!customerId) { setCartMsg({ text: 'Please log in to add items to cart.', ok: false }); return; }
+    if (product.quantity === 0) { setCartMsg({ text: `${product.name} is out of stock.`, ok: false }); return; }
+    try {
+      await addToCart.mutateAsync({ customerId, productId: product.productId, quantity: 1 });
+      setCartMsg({ text: `${product.name} added to cart!`, ok: true });
+      setTimeout(() => setCartMsg(null), 2500);
+    } catch {
+      setCartMsg({ text: 'Failed to add to cart.', ok: false });
+    }
+  };
+
   if (isLoading) return <div className="py-16 flex justify-center"><Spinner size="lg" /></div>;
   if (error)     return <Alert variant="error" message="Failed to load products" className="max-w-lg" />;
 
@@ -85,6 +101,14 @@ export const ProductsPage = () => {
       </div>
 
       {/* Add form */}
+      {cartMsg && (
+        <Alert
+          variant={cartMsg.ok ? 'success' : 'error'}
+          message={cartMsg.text}
+          onClose={() => setCartMsg(null)}
+        />
+      )}
+
       {isAdding && (
         <Card>
           <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
@@ -186,7 +210,7 @@ export const ProductsPage = () => {
                         <Button size="sm" variant="outline" aria-label={`Edit ${product.name}`} onClick={() => { setEditingId(product.productId); setEditQuantity(product.quantity); }}>
                           <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
-                        <Button size="sm" variant="ghost" aria-label={`Add to cart`} onClick={() => addItem({ productId: product.productId, productName: product.name, quantity: 1, price: 10 })} className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">
+                        <Button size="sm" variant="ghost" aria-label={`Add to cart`} onClick={() => handleAddToCart(product)} disabled={product.quantity === 0} className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">
                           <CartIcon className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
                         <Button size="sm" variant="ghost" aria-label={`Delete ${product.name}`} onClick={() => setDeleteId(product.productId)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30">

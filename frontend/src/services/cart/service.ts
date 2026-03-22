@@ -1,179 +1,119 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../../api/client/apiClient';
-import type { Cart, AddToCartRequest } from '../../api/types';
+import type { CartDto } from '../../api/types';
 
 const CART_ENDPOINTS = {
-  LIST: '/api/v1/carts',
-  GET: (id: number) => `/api/v1/carts/${id}`,
-  GET_BY_CUSTOMER: (customerId: number) => `/api/v1/carts/customer/${customerId}`,
-  CREATE: '/api/v1/carts',
-  ADD_ITEM: '/api/v1/carts/items',
-  UPDATE_ITEM: (productId: number) => `/api/v1/carts/items/${productId}`,
-  REMOVE_ITEM: (productId: number) => `/api/v1/carts/items/${productId}`,
-  CLEAR: '/api/v1/carts/clear',
-  CHECKOUT: '/api/v1/carts/checkout',
-  DELETE: (id: number) => `/api/v1/carts/${id}`,
+  GET_BY_CUSTOMER:    (id: number) => `/api/v1/carts/customer/${id}`,
+  CREATE:             `/api/v1/carts`,
+  ADD_ITEM:           `/api/v1/carts/items`,
+  UPDATE_ITEM:        (productId: number) => `/api/v1/carts/items/${productId}`,
+  REMOVE_ITEM:        (productId: number) => `/api/v1/carts/items/${productId}`,
+  CLEAR:              `/api/v1/carts/clear`,
+  CHECKOUT_ORDER:     `/api/v1/carts/checkout-order`,
 };
 
-export const cartService = {
-  getAll: async (): Promise<Cart[]> => {
-    const response = await apiClient.get<Cart[]>(CART_ENDPOINTS.LIST);
-    return response.data;
+export const cartApiService = {
+  getByCustomer: async (customerId: number): Promise<CartDto> => {
+    const res = await apiClient.get<CartDto>(CART_ENDPOINTS.GET_BY_CUSTOMER(customerId));
+    return res.data;
   },
 
-  getById: async (id: number): Promise<Cart> => {
-    const response = await apiClient.get<Cart>(CART_ENDPOINTS.GET(id));
-    return response.data;
+  createCart: async (customerId: number): Promise<CartDto> => {
+    const res = await apiClient.post<CartDto>(CART_ENDPOINTS.CREATE, null, { params: { customerId } });
+    return res.data;
   },
 
-  getByCustomerId: async (customerId: number): Promise<Cart> => {
-    const response = await apiClient.get<Cart>(CART_ENDPOINTS.GET_BY_CUSTOMER(customerId));
-    return response.data;
+  addItem: async (customerId: number, item: { productId: number; quantity: number }): Promise<CartDto> => {
+    const res = await apiClient.post<CartDto>(CART_ENDPOINTS.ADD_ITEM, item, { params: { customerId } });
+    return res.data;
   },
 
-  create: async (customerId: number): Promise<Cart> => {
-    const response = await apiClient.post<Cart>(CART_ENDPOINTS.CREATE, null, {
+  updateItem: async (customerId: number, productId: number, quantity: number): Promise<CartDto> => {
+    const res = await apiClient.put<CartDto>(CART_ENDPOINTS.UPDATE_ITEM(productId), null, {
+      params: { customerId, quantity },
+    });
+    return res.data;
+  },
+
+  removeItem: async (customerId: number, productId: number): Promise<CartDto> => {
+    const res = await apiClient.delete<CartDto>(CART_ENDPOINTS.REMOVE_ITEM(productId), {
       params: { customerId },
     });
-    return response.data;
+    return res.data;
   },
 
-  addItem: async (customerId: number, data: AddToCartRequest): Promise<Cart> => {
-    const response = await apiClient.post<Cart>(CART_ENDPOINTS.ADD_ITEM, data, {
-      params: { customerId },
-    });
-    return response.data;
+  clearCart: async (customerId: number): Promise<CartDto> => {
+    const res = await apiClient.delete<CartDto>(CART_ENDPOINTS.CLEAR, { params: { customerId } });
+    return res.data;
   },
 
-  updateItemQuantity: async (customerId: number, productId: number, quantity: number): Promise<Cart> => {
-    const response = await apiClient.put<Cart>(
-      CART_ENDPOINTS.UPDATE_ITEM(productId),
-      null,
-      { params: { customerId, quantity } }
-    );
-    return response.data;
-  },
-
-  removeItem: async (customerId: number, productId: number): Promise<Cart> => {
-    const response = await apiClient.delete<Cart>(CART_ENDPOINTS.REMOVE_ITEM(productId), {
-      params: { customerId },
-    });
-    return response.data;
-  },
-
-  clear: async (customerId: number): Promise<Cart> => {
-    const response = await apiClient.delete<Cart>(CART_ENDPOINTS.CLEAR, {
-      params: { customerId },
-    });
-    return response.data;
-  },
-
-  checkout: async (customerId: number): Promise<Cart> => {
-    const response = await apiClient.post<Cart>(CART_ENDPOINTS.CHECKOUT, null, {
-      params: { customerId },
-    });
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await apiClient.delete(CART_ENDPOINTS.DELETE(id));
+  checkoutAndCreateOrder: async (customerId: number) => {
+    const res = await apiClient.post(CART_ENDPOINTS.CHECKOUT_ORDER, null, { params: { customerId } });
+    return res.data; // OrderDto with orderId + totalAmount
   },
 };
 
-export const useCarts = () => {
-  return useQuery({
-    queryKey: ['carts'],
-    queryFn: cartService.getAll,
-    staleTime: 1000 * 60 * 2,
-  });
-};
+// ── Hooks ────────────────────────────────────────────────────────────────────
 
-export const useCart = (id: number) => {
-  return useQuery({
-    queryKey: ['cart', id],
-    queryFn: () => cartService.getById(id),
-    enabled: !!id,
-  });
-};
-
-export const useCartByCustomer = (customerId: number) => {
+export const useBackendCart = (customerId: number | undefined) => {
   return useQuery({
     queryKey: ['cart', 'customer', customerId],
-    queryFn: () => cartService.getByCustomerId(customerId),
+    queryFn: () => cartApiService.getByCustomer(customerId!),
     enabled: !!customerId,
+    retry: false, // 404 = no active cart yet, don't retry
   });
 };
 
 export const useCreateCart = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (customerId: number) => cartService.create(customerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['carts'] });
-    },
+    mutationFn: (customerId: number) => cartApiService.createCart(customerId),
+    onSuccess: (_, customerId) => qc.invalidateQueries({ queryKey: ['cart', 'customer', customerId] }),
   });
 };
 
-export const useAddToCart = () => {
-  const queryClient = useQueryClient();
+export const useAddItemToCart = () => {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ customerId, data }: { customerId: number; data: AddToCartRequest }) =>
-      cartService.addItem(customerId, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['cart', 'customer', variables.customerId] });
-    },
+    mutationFn: ({ customerId, productId, quantity }: { customerId: number; productId: number; quantity: number }) =>
+      cartApiService.addItem(customerId, { productId, quantity }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['cart', 'customer', vars.customerId] }),
   });
 };
 
 export const useUpdateCartItem = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ customerId, productId, quantity }: { customerId: number; productId: number; quantity: number }) =>
-      cartService.updateItemQuantity(customerId, productId, quantity),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['cart', 'customer', variables.customerId] });
-    },
+      cartApiService.updateItem(customerId, productId, quantity),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['cart', 'customer', vars.customerId] }),
   });
 };
 
-export const useRemoveFromCart = () => {
-  const queryClient = useQueryClient();
+export const useRemoveCartItem = () => {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ customerId, productId }: { customerId: number; productId: number }) =>
-      cartService.removeItem(customerId, productId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['cart', 'customer', variables.customerId] });
-    },
+      cartApiService.removeItem(customerId, productId),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['cart', 'customer', vars.customerId] }),
   });
 };
 
 export const useClearCart = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (customerId: number) => cartService.clear(customerId),
-    onSuccess: (_, customerId) => {
-      queryClient.invalidateQueries({ queryKey: ['cart', 'customer', customerId] });
-    },
+    mutationFn: (customerId: number) => cartApiService.clearCart(customerId),
+    onSuccess: (_, customerId) => qc.invalidateQueries({ queryKey: ['cart', 'customer', customerId] }),
   });
 };
 
-export const useCheckout = () => {
-  const queryClient = useQueryClient();
+export const useCheckoutAndCreateOrder = () => {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (customerId: number) => cartService.checkout(customerId),
+    mutationFn: (customerId: number) => cartApiService.checkoutAndCreateOrder(customerId),
     onSuccess: (_, customerId) => {
-      queryClient.invalidateQueries({ queryKey: ['cart', 'customer', customerId] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-    },
-  });
-};
-
-export const useDeleteCart = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => cartService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['carts'] });
+      qc.invalidateQueries({ queryKey: ['cart', 'customer', customerId] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
     },
   });
 };

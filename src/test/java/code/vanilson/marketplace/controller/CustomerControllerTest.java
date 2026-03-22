@@ -1,24 +1,33 @@
 package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.CustomerDto;
+import code.vanilson.marketplace.model.Customer;
+import code.vanilson.marketplace.repository.CustomerRepository;
 import code.vanilson.marketplace.service.CustomerServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -27,17 +36,45 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CustomerControllerTest {
 
     private MockMvc mockMvc;
+
     @Mock
     private CustomerServiceImpl customerService;
-    @InjectMocks
+
+    @Mock
+    private CustomerRepository customerRepository;
+
+    // Build manually — constructor now requires both CustomerService and CustomerRepository
     private CustomerController customerController;
+
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(customerController).build();
+        customerController = new CustomerController(customerService, customerRepository);
+        mockMvc = MockMvcBuilders.standaloneSetup(customerController)
+                // Required so @AuthenticationPrincipal resolves from SecurityContextHolder
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .build();
         objectMapper = new ObjectMapper();
     }
+
+    @AfterEach
+    void tearDown() {
+        // Always clear security context after each test
+        SecurityContextHolder.clearContext();
+    }
+
+    /** Helper: puts a UserDetails into the Spring Security context so that
+     *  @AuthenticationPrincipal resolves correctly in standalone MockMvc. */
+    private void authenticateAs(String email) {
+        User principal = new User(
+                email, "irrelevant",
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+    }
+
+    // ── existing tests ────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Get All Customers")
@@ -102,8 +139,8 @@ class CustomerControllerTest {
     }
 
     @Test
-    @DisplayName("Delete Customer - Customer Not Found")
-    void testDeleteCustomerCustomerNotFound() throws Exception {
+    @DisplayName("Delete Customer - Not Found")
+    void testDeleteCustomerNotFound() throws Exception {
         Long customerId = 1L;
         when(customerService.findCustomerById(customerId)).thenReturn(Optional.empty());
         mockMvc.perform(delete("/api/v1/customers/{id}", customerId))
@@ -119,5 +156,51 @@ class CustomerControllerTest {
         when(customerService.deleteCustomer(customerId)).thenReturn(false);
         mockMvc.perform(delete("/api/v1/customers/{id}", customerId))
                 .andExpect(status().isInternalServerError());
+    }
+
+    // ── new tests for GET /me ─────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("GET /me - returns 401 when not authenticated")
+    void testGetCurrentCustomerReturns401WhenNotAuthenticated() throws Exception {
+        // SecurityContext is empty → principal is null → controller returns 401
+        mockMvc.perform(get("/api/v1/customers/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /me - returns customer for authenticated user")
+    void testGetCurrentCustomerReturnsCustomer() throws Exception {
+        // Populate SecurityContext so @AuthenticationPrincipal resolves to 'john@example.com'
+        authenticateAs("john@example.com");
+
+        Customer customer = new Customer(1L, "John Doe", "john@example.com", "Address 1");
+        when(customerRepository.findByEmail("john@example.com"))
+                .thenReturn(Optional.of(customer));
+
+        mockMvc.perform(get("/api/v1/customers/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(1))
+                .andExpect(jsonPath("$.email").value("john@example.com"));
+    }
+
+    @Test
+    @DisplayName("GET /me - auto-creates customer when email has no record")
+    void testGetCurrentCustomerAutoCreates() throws Exception {
+        authenticateAs("newuser@example.com");
+
+        Customer created = new Customer(99L, "newuser", "newuser@example.com", "");
+
+        // First call returns empty (no customer yet), save returns the new one
+        when(customerRepository.findByEmail("newuser@example.com"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenReturn(created);
+
+        mockMvc.perform(get("/api/v1/customers/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(99))
+                .andExpect(jsonPath("$.email").value("newuser@example.com"));
+
+        verify(customerRepository).save(any(Customer.class));
     }
 }

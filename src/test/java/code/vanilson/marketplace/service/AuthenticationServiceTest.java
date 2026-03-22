@@ -4,9 +4,11 @@ import code.vanilson.marketplace.config.JwtService;
 import code.vanilson.marketplace.controller.auth.AuthenticationRequest;
 import code.vanilson.marketplace.controller.auth.AuthenticationResponse;
 import code.vanilson.marketplace.controller.auth.RegisterRequest;
+import code.vanilson.marketplace.model.Customer;
 import code.vanilson.marketplace.model.ROLE;
 import code.vanilson.marketplace.model.Token;
 import code.vanilson.marketplace.model.User;
+import code.vanilson.marketplace.repository.CustomerRepository;
 import code.vanilson.marketplace.repository.TokenRepository;
 import code.vanilson.marketplace.repository.UserRepository;
 import io.github.bucket4j.Bucket;
@@ -33,25 +35,15 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AuthenticationServiceTest {
 
-    @Mock
-    private UserRepository repository;
+    @Mock private UserRepository      repository;
+    @Mock private TokenRepository     tokenRepository;
+    @Mock private PasswordEncoder     passwordEncoder;
+    @Mock private JwtService          jwtService;
+    @Mock private AuthenticationManager authenticationManager;
+    @Mock private RateLimitingService rateLimitingService;
+    @Mock private CustomerRepository  customerRepository;
 
-    @Mock
-    private TokenRepository tokenRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private JwtService jwtService;
-
-    @Mock
-    private AuthenticationManager authenticationManager;
-
-    @Mock
-    private RateLimitingService rateLimitingService;
-
-    @InjectMocks
+    // Construct manually — constructor now includes CustomerRepository
     private AuthenticationService authenticationService;
 
     private User testUser;
@@ -61,6 +53,10 @@ class AuthenticationServiceTest {
 
     @BeforeEach
     void setUp() {
+        authenticationService = new AuthenticationService(
+                repository, tokenRepository, passwordEncoder,
+                jwtService, rateLimitingService, customerRepository);
+
         testUser = User.builder()
                 .id(1)
                 .email("test@example.com")
@@ -90,6 +86,9 @@ class AuthenticationServiceTest {
         when(jwtService.generateToken(any(User.class))).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh-token");
         when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
+        // No customer exists yet → findByEmail returns empty → should save new Customer
+        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenReturn(new Customer());
 
         AuthenticationResponse response = authenticationService.register(registerRequest);
 
@@ -102,6 +101,26 @@ class AuthenticationServiceTest {
         verify(jwtService, times(1)).generateToken(any(User.class));
         verify(jwtService, times(1)).generateRefreshToken(any(User.class));
         verify(tokenRepository, times(1)).save(any(Token.class));
+        // Verify Customer was created
+        verify(customerRepository, times(1)).findByEmail("test@example.com");
+        verify(customerRepository, times(1)).save(any(Customer.class));
+    }
+
+    @Test
+    void testRegisterDoesNotCreateDuplicateCustomer() {
+        Customer existing = new Customer(1L, "existing", "test@example.com", "");
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+        when(repository.save(any(User.class))).thenReturn(testUser);
+        when(jwtService.generateToken(any(User.class))).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh-token");
+        when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
+        // Customer already exists → findByEmail returns it → should NOT save again
+        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.of(existing));
+
+        authenticationService.register(registerRequest);
+
+        verify(customerRepository, times(1)).findByEmail("test@example.com");
+        verify(customerRepository, never()).save(any(Customer.class));
     }
 
     @Test
@@ -125,6 +144,8 @@ class AuthenticationServiceTest {
         when(jwtService.generateToken(any(User.class))).thenReturn("admin-access-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("admin-refresh-token");
         when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
+        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenReturn(new Customer());
 
         AuthenticationResponse response = authenticationService.register(adminRequest);
 
@@ -188,6 +209,8 @@ class AuthenticationServiceTest {
         when(jwtService.generateToken(any(User.class))).thenReturn("manager-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("manager-refresh");
         when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
+        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenReturn(new Customer());
 
         AuthenticationResponse response = authenticationService.register(managerRequest);
 

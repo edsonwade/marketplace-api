@@ -6,7 +6,6 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
 import { useLogin } from '../../services';
-import { useAuthStore } from '../../store';
 
 interface LoginForm { email: string; password: string; }
 
@@ -25,13 +24,16 @@ const getLoginError = (error: unknown): string => {
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
   const login = useLogin();
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
   const onSubmit = async (data: LoginForm) => {
-    try { await login.mutateAsync(data); setAuth(); navigate('/dashboard'); } catch {}
+    try {
+      await login.mutateAsync(data);
+      // setAuth + setUser are called inside useLogin's onSuccess via /customers/me
+      navigate('/dashboard');
+    } catch {}
   };
 
   return (

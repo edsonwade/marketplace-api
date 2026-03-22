@@ -2,6 +2,7 @@ package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.CartDto;
 import code.vanilson.marketplace.dto.CartItemDto;
+import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.service.CartService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -202,5 +203,35 @@ class CartControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(cartService, times(1)).deleteCart(999L);
+    }
+
+    // ── checkoutAndCreateOrder ────────────────────────────────────────────────
+
+    @Test
+    void testCheckoutAndCreateOrderReturnsOkWithOrderDto() throws Exception {
+        OrderDto orderDto = new OrderDto();
+        orderDto.setOrderId(42L);
+        orderDto.setTotalAmount(java.math.BigDecimal.valueOf(19.98));
+
+        when(cartService.checkoutAndCreateOrder(anyLong())).thenReturn(orderDto);
+
+        mockMvc.perform(post("/api/v1/carts/checkout-order")
+                        .param("customerId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(42));
+
+        verify(cartService, times(1)).checkoutAndCreateOrder(1L);
+    }
+
+    @Test
+    void testCheckoutAndCreateOrderReturnsBadRequestWhenCartEmpty() throws Exception {
+        when(cartService.checkoutAndCreateOrder(anyLong()))
+                .thenThrow(new IllegalStateException("Cannot checkout an empty cart"));
+
+        mockMvc.perform(post("/api/v1/carts/checkout-order")
+                        .param("customerId", "1"))
+                .andExpect(status().isBadRequest());
+
+        verify(cartService, times(1)).checkoutAndCreateOrder(1L);
     }
 }
