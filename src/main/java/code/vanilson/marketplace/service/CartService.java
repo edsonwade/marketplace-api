@@ -7,6 +7,7 @@ import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
 import code.vanilson.marketplace.mapper.CartMapper;
 import code.vanilson.marketplace.mapper.CustomerMapper;
+import code.vanilson.marketplace.exception.BadRequestException;
 import code.vanilson.marketplace.model.*;
 import code.vanilson.marketplace.repository.*;
 import org.apache.logging.log4j.LogManager;
@@ -28,15 +29,17 @@ public class CartService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
+    private final StockRepository stockRepository;
 
     public CartService(CartRepository cartRepository, CartItemRepository cartItemRepository,
                        ProductRepository productRepository, CustomerRepository customerRepository,
-                       OrderRepository orderRepository) {
+                       OrderRepository orderRepository, StockRepository stockRepository) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
+        this.stockRepository = stockRepository;
     }
 
     public List<CartDto> findAllCarts() {
@@ -86,13 +89,27 @@ public class CartService {
                 });
 
         // Force-load lazy items collection BEFORE modifying it.
-        // Without this, orphanRemoval=true causes Hibernate to delete existing
-        // items when a second product is added (it sees an "empty" list).
         int existingCount = cart.getItems().size();
         logger.debug("Cart {} has {} existing items", cart.getCartId(), existingCount);
 
         Product product = productRepository.findById(cartItemDto.getProductId())
                 .orElseThrow(() -> new ObjectWithIdNotFound("Product not found with id: " + cartItemDto.getProductId()));
+
+        // ── Stock check ──────────────────────────────────────────────────────
+        // Use product.quantity as source of truth (shown in the UI)
+        int available = product.getQuantity() != null ? product.getQuantity() : 0;
+        if (available <= 0) {
+            throw new BadRequestException("Product '" + product.getName() + "' is out of stock");
+        }
+        int requested = cartItemDto.getQuantity() != null ? cartItemDto.getQuantity() : 1;
+        // Account for quantity already in cart
+        int alreadyInCart = cartItemRepository.findByCartCartIdAndProductId(cart.getCartId(), product.getProductId())
+                .map(CartItem::getQuantity).orElse(0);
+        if (alreadyInCart + requested > available) {
+            throw new BadRequestException("Not enough stock for '" + product.getName() +
+                    "'. Available: " + available + ", already in cart: " + alreadyInCart);
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         BigDecimal unitPrice = product.getPrice() != null ? product.getPrice() : BigDecimal.valueOf(9.99);
 

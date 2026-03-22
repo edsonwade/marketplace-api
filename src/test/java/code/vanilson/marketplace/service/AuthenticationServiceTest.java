@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -186,6 +187,38 @@ class AuthenticationServiceTest {
         assertThatThrownBy(() -> authenticationService.authenticate(authRequest))
                 .isInstanceOf(org.springframework.security.authentication.BadCredentialsException.class)
                 .hasMessageContaining("auth.rate.limit");
+    }
+
+    @Test
+    void testChangePasswordSuccess() {
+        when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword456")).thenReturn("encodedNewPassword");
+        when(repository.save(any(User.class))).thenReturn(testUser);
+
+        authenticationService.changePassword("test@example.com", "password123", "newPassword456");
+
+        verify(repository).save(argThat(u -> u.getPassword().equals("encodedNewPassword")));
+    }
+
+    @Test
+    void testChangePasswordThrowsWhenCurrentPasswordWrong() {
+        when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("wrongPassword", "encodedPassword")).thenReturn(false);
+
+        assertThatThrownBy(() -> authenticationService.changePassword("test@example.com", "wrongPassword", "newPass"))
+                .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
+                .hasMessageContaining("Current password is incorrect");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void testChangePasswordThrowsWhenUserNotFound() {
+        when(repository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authenticationService.changePassword("unknown@example.com", "pass", "newPass"))
+                .isInstanceOf(code.vanilson.marketplace.exception.ObjectWithIdNotFound.class);
     }
 
     @Test

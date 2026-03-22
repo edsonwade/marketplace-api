@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Shield, Info, Edit2, Check, X } from 'lucide-react';
+import { User, LogOut, Shield, Info, Edit2, Check, X, KeyRound } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -41,6 +41,32 @@ export const SettingsPage = () => {
   const handleLogout = async () => {
     try { await logout.mutateAsync(); } catch {}
     clearAuth(); navigate('/login', { replace: true });
+  };
+
+  // Change password state
+  const [pwForm,    setPwForm]    = useState({ current: '', next: '', confirm: '' });
+  const [pwError,   setPwError]   = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const handleChangePassword = async () => {
+    setPwError(null); setPwSuccess(false);
+    if (!pwForm.current)           { setPwError('Current password is required'); return; }
+    if (pwForm.next.length < 8)    { setPwError('New password must be at least 8 characters'); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError('Passwords do not match'); return; }
+    setPwLoading(true);
+    try {
+      await import('../../api/client/apiClient').then(({ default: api }) =>
+        api.post('/api/v1/auth/change-password', { currentPassword: pwForm.current, newPassword: pwForm.next })
+      );
+      setPwSuccess(true);
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      setPwError(msg || 'Failed to change password');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   const initials = user?.name ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
@@ -97,6 +123,29 @@ export const SettingsPage = () => {
               ))}
             </dl>
           )}
+        </CardBody>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <KeyRound className="h-4 w-4 text-slate-400" aria-hidden="true" /> Change Password
+          </div>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          {pwSuccess && <Alert variant="success" message="Password changed successfully!" />}
+          {pwError   && <Alert variant="error"   message={pwError} onClose={() => setPwError(null)} />}
+          <Input label="Current password" type="password" value={pwForm.current}
+            onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })} />
+          <Input label="New password" type="password" value={pwForm.next}
+            onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })}
+            hint="At least 8 characters" />
+          <Input label="Confirm new password" type="password" value={pwForm.confirm}
+            onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} />
+          <Button onClick={handleChangePassword} isLoading={pwLoading} className="w-full sm:w-auto">
+            <Check className="h-4 w-4" aria-hidden="true" /> Update Password
+          </Button>
         </CardBody>
       </Card>
 

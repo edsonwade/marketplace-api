@@ -7,9 +7,7 @@ import code.vanilson.marketplace.mapper.PaymentMapper;
 import code.vanilson.marketplace.model.Order;
 import code.vanilson.marketplace.model.Payment;
 import code.vanilson.marketplace.model.PaymentMethod;
-import code.vanilson.marketplace.repository.OrderRepository;
-import code.vanilson.marketplace.repository.PaymentMethodRepository;
-import code.vanilson.marketplace.repository.PaymentRepository;
+import code.vanilson.marketplace.repository.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
@@ -27,12 +25,22 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final OrderRepository orderRepository;
+    private final StockRepository stockRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final EmailService emailService;
 
     public PaymentService(PaymentRepository paymentRepository, PaymentMethodRepository paymentMethodRepository,
-                          OrderRepository orderRepository) {
+                          OrderRepository orderRepository, StockRepository stockRepository,
+                          ProductRepository productRepository, CustomerRepository customerRepository,
+                          EmailService emailService) {
         this.paymentRepository = paymentRepository;
         this.paymentMethodRepository = paymentMethodRepository;
         this.orderRepository = orderRepository;
+        this.stockRepository = stockRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.emailService = emailService;
     }
 
     public List<PaymentDto> findAllPayments() {
@@ -102,7 +110,40 @@ public class PaymentService {
 
         if (success) {
             saved.setPaymentStatus("COMPLETED");
-            logger.info("Payment COMPLETED for order {}: amount={} {}", orderId, amount, "USD");
+            logger.info("Payment COMPLETED for order {}: amount={} USD", orderId, amount);
+
+            // ── Reduce stock for each order item ────────────────────────────
+            order.getOrderItems().forEach(item -> {
+                Long productId = item.getProduct() != null ? item.getProduct().getProductId() : null;
+                if (productId == null) return;
+                // Update product.quantity
+                productRepository.findById(productId).ifPresent(p -> {
+                    int newQty = Math.max(0, (p.getQuantity() != null ? p.getQuantity() : 0) - item.getQuantity());
+                    p.setQuantity(newQty);
+                    productRepository.save(p);
+                    logger.info("Reduced product {} quantity by {} → {}", productId, item.getQuantity(), newQty);
+                });
+                // Also update tb_stocks if entry exists
+                stockRepository.findByProductProductId(productId).ifPresent(stock -> {
+                    int newStockQty = Math.max(0, stock.getQuantity() - item.getQuantity());
+                    stock.setQuantity(newStockQty);
+                    stockRepository.save(stock);
+                });
+            });
+
+            // ── Send payment confirmation email ─────────────────────────────
+            customerRepository.findById(customerId).ifPresent(customer -> {
+                try {
+                    emailService.sendPaymentConfirmation(
+                            customer.getEmail(),
+                            String.valueOf(saved.getPaymentId()),
+                            "$" + amount + " USD"
+                    );
+                } catch (Exception e) {
+                    // Email failure must NOT rollback the payment transaction
+                    logger.warn("Payment email notification failed for customer {}: {}", customerId, e.getMessage());
+                }
+            });
         } else {
             saved.setPaymentStatus("FAILED");
             logger.warn("Payment FAILED for order {}", orderId);

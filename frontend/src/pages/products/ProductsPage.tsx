@@ -18,9 +18,10 @@ type StatusFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
 
 export const ProductsPage = () => {
   const [isAdding,     setIsAdding]     = useState(false);
-  const [newProduct,   setNewProduct]   = useState({ name: '', quantity: 0 });
+  const [newProduct,   setNewProduct]   = useState({ name: '', quantity: 0, price: 0 });
   const [editingId,    setEditingId]    = useState<number | null>(null);
   const [editQuantity, setEditQuantity] = useState(0);
+  const [editPrice,    setEditPrice]    = useState(0);
   const [deleteId,     setDeleteId]     = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
@@ -50,13 +51,13 @@ export const ProductsPage = () => {
 
   const handleCreate = async () => {
     if (!newProduct.name.trim()) return;
-    await createProduct.mutateAsync({ name: newProduct.name, quantity: newProduct.quantity });
-    setNewProduct({ name: '', quantity: 0 });
+    await createProduct.mutateAsync({ name: newProduct.name, quantity: newProduct.quantity, price: newProduct.price });
+    setNewProduct({ name: '', quantity: 0, price: 0 });
     setIsAdding(false);
   };
 
   const handleUpdate = async (product: Product) => {
-    await updateProduct.mutateAsync({ id: product.productId, data: { name: product.name, quantity: editQuantity }, version: product.version });
+    await updateProduct.mutateAsync({ id: product.productId, data: { name: product.name, quantity: editQuantity, price: editPrice }, version: product.version });
     setEditingId(null);
   };
 
@@ -119,7 +120,8 @@ export const ProductsPage = () => {
           </div>
           <div className="px-5 py-4 flex flex-col sm:flex-row gap-3 items-end">
             <Input label="Product Name" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="e.g., Wireless Headphones" className="sm:max-w-xs" />
-            <Input label="Initial Qty" type="number" min={0} value={newProduct.quantity} onChange={(e) => setNewProduct({ ...newProduct, quantity: parseInt(e.target.value) || 0 })} className="sm:w-28" />
+            <Input label="Initial Qty" type="number" min={0} value={newProduct.quantity} onChange={(e) => setNewProduct({ ...newProduct, quantity: parseInt(e.target.value) || 0 })} className="sm:w-24" />
+            <Input label="Price ($)" type="number" min={0} step={0.01} value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || 0 })} className="sm:w-28" />
             <div className="flex gap-2">
               <Button onClick={handleCreate} isLoading={createProduct.isPending}>Save</Button>
               <Button variant="outline" onClick={() => setIsAdding(false)}>Cancel</Button>
@@ -164,6 +166,7 @@ export const ProductsPage = () => {
             <TableRow>
               <TableHeadCell>ID</TableHeadCell>
               <TableHeadCell>Product</TableHeadCell>
+              <TableHeadCell>Price</TableHeadCell>
               <TableHeadCell>Quantity</TableHeadCell>
               <TableHeadCell>Status</TableHeadCell>
               <TableHeadCell className="text-right">Actions</TableHeadCell>
@@ -181,6 +184,12 @@ export const ProductsPage = () => {
               <TableRow key={product.productId}>
                 <TableCell className="font-mono text-xs text-slate-400 dark:text-slate-500">#{product.productId}</TableCell>
                 <TableCell className="font-semibold text-slate-800 dark:text-slate-100">{product.name}</TableCell>
+                <TableCell>
+                  {editingId === product.productId
+                    ? <Input type="number" min={0} step={0.01} value={editPrice} onChange={(e) => setEditPrice(parseFloat(e.target.value) || 0)} className="w-24" aria-label="Edit price" />
+                    : <span className="font-medium text-slate-700 dark:text-slate-200">${Number(product.price ?? 0).toFixed(2)}</span>
+                  }
+                </TableCell>
                 <TableCell>
                   {editingId === product.productId
                     ? <Input type="number" min={0} value={editQuantity} onChange={(e) => setEditQuantity(parseInt(e.target.value) || 0)} className="w-24" aria-label="Edit quantity" />
@@ -207,7 +216,7 @@ export const ProductsPage = () => {
                       </>
                     ) : (
                       <>
-                        <Button size="sm" variant="outline" aria-label={`Edit ${product.name}`} onClick={() => { setEditingId(product.productId); setEditQuantity(product.quantity); }}>
+                        <Button size="sm" variant="outline" aria-label={`Edit ${product.name}`} onClick={() => { setEditingId(product.productId); setEditQuantity(product.quantity); setEditPrice(Number(product.price ?? 0)); }}>
                           <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
                         <Button size="sm" variant="ghost" aria-label={`Add to cart`} onClick={() => handleAddToCart(product)} disabled={product.quantity === 0} className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">
