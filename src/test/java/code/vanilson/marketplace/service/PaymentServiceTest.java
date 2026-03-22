@@ -4,9 +4,7 @@ import code.vanilson.marketplace.dto.PaymentDto;
 import code.vanilson.marketplace.dto.PaymentMethodDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
 import code.vanilson.marketplace.model.*;
-import code.vanilson.marketplace.repository.OrderRepository;
-import code.vanilson.marketplace.repository.PaymentMethodRepository;
-import code.vanilson.marketplace.repository.PaymentRepository;
+import code.vanilson.marketplace.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +20,8 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,8 +30,11 @@ class PaymentServiceTest {
     @Mock private PaymentRepository       paymentRepository;
     @Mock private PaymentMethodRepository paymentMethodRepository;
     @Mock private OrderRepository         orderRepository;
+    @Mock private StockRepository         stockRepository;
+    @Mock private ProductRepository       productRepository;
+    @Mock private CustomerRepository      customerRepository;
+    @Mock private EmailService            emailService;
 
-    // Construct manually so the new 3-arg constructor is used correctly
     private PaymentService paymentService;
 
     private Payment       payment;
@@ -42,7 +45,8 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentService(paymentRepository, paymentMethodRepository, orderRepository);
+        paymentService = new PaymentService(paymentRepository, paymentMethodRepository, orderRepository,
+                stockRepository, productRepository, customerRepository, emailService);
 
         payment = new Payment(1L, 1L, "CREDIT_CARD", BigDecimal.valueOf(100));
         payment.setPaymentId(1L);
@@ -131,9 +135,11 @@ class PaymentServiceTest {
 
     @Test
     void testProcessPaymentReturnsCompleted() {
-        // Must mock OrderRepository.findById so processPayment can fetch the order + calculate amount
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(productRepository.findById(any())).thenReturn(Optional.empty());
+        when(stockRepository.findByProductProductId(any())).thenReturn(Optional.empty());
+        when(customerRepository.findById(1L)).thenReturn(Optional.empty());
 
         PaymentDto result = paymentService.processPayment(1L, 1L, "CREDIT_CARD", null);
 
@@ -141,6 +147,43 @@ class PaymentServiceTest {
         assertThat(result.getPaymentStatus()).isEqualTo("COMPLETED");
         verify(orderRepository).findById(1L);
         verify(paymentRepository, times(2)).save(any(Payment.class));
+    }
+
+    @Test
+    void testProcessPaymentReducesStockOnCompletion() {
+        // Product with 10 in stock, order has 2 items
+        Product p = new Product();
+        p.setProductId(1L);
+        p.setQuantity(10);
+        p.setPrice(BigDecimal.valueOf(9.99));
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(productRepository.save(any(Product.class))).thenReturn(p);
+        when(stockRepository.findByProductProductId(1L)).thenReturn(Optional.empty());
+        when(customerRepository.findById(1L)).thenReturn(Optional.empty());
+
+        paymentService.processPayment(1L, 1L, "CREDIT_CARD", null);
+
+        // Product quantity should be reduced from 10 by 2 = 8
+        verify(productRepository).save(argThat(prod -> prod.getQuantity() == 8));
+    }
+
+    @Test
+    void testProcessPaymentSendsEmailOnCompletion() {
+        Customer customer = new Customer(1L, "John", "john@example.com", "123 St");
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(productRepository.findById(any())).thenReturn(Optional.empty());
+        when(stockRepository.findByProductProductId(any())).thenReturn(Optional.empty());
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
+
+        paymentService.processPayment(1L, 1L, "CREDIT_CARD", null);
+
+        verify(emailService).sendPaymentConfirmation(
+                eq("john@example.com"), any(), any());
     }
 
     @Test

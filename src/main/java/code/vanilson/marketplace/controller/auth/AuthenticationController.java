@@ -41,4 +41,15 @@ public class AuthenticationController {
         service.refreshToken(request, response);
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+            org.springframework.security.core.userdetails.UserDetails principal
+    ) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        service.changePassword(principal.getUsername(), request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok().build();
+    }
+
 }

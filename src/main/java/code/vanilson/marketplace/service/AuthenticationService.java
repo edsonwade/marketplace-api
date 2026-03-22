@@ -107,6 +107,16 @@ public class AuthenticationService {
         tokenRepository.saveAll(validUserTokens);
     }
 
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        var user = repository.findByEmail(email)
+                .orElseThrow(() -> new code.vanilson.marketplace.exception.ObjectWithIdNotFound("User not found"));
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new code.vanilson.marketplace.exception.BadRequestException("Current password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        repository.save(user);
+    }
+
     public void refreshToken(
             HttpServletRequest request,
             HttpServletResponse response

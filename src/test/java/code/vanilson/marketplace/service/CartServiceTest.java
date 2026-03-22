@@ -30,8 +30,8 @@ class CartServiceTest {
     @Mock private ProductRepository  productRepository;
     @Mock private CustomerRepository customerRepository;
     @Mock private OrderRepository    orderRepository;
+    @Mock private StockRepository    stockRepository;
 
-    // Construct manually so the new 5-arg constructor is used correctly
     private CartService cartService;
 
     private Cart     cart;
@@ -43,7 +43,7 @@ class CartServiceTest {
     void setUp() {
         cartService = new CartService(
                 cartRepository, cartItemRepository,
-                productRepository, customerRepository, orderRepository);
+                productRepository, customerRepository, orderRepository, stockRepository);
 
         product = new Product();
         product.setProductId(1L);
@@ -149,15 +149,39 @@ class CartServiceTest {
     @Test
     void testAddItemToCartAddsNewItem() {
         CartItemDto itemDto = new CartItemDto(1L, "Test Product", 2, BigDecimal.valueOf(9.99));
-        // cart.getItems().size() is called to force-load the lazy collection
-        // The test cart already has an empty ArrayList so this works without mocking
         when(cartRepository.findByCustomerIdAndStatus(1L, "ACTIVE")).thenReturn(Optional.of(cart));
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        // Stock check: findByCartCartIdAndProductId returns empty (0 already in cart)
         when(cartItemRepository.findByCartCartIdAndProductId(1L, 1L)).thenReturn(Optional.empty());
         when(cartRepository.save(any(Cart.class))).thenReturn(cart);
 
         CartDto result = cartService.addItemToCart(1L, itemDto);
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    void testAddItemToCartThrowsWhenOutOfStock() {
+        product.setQuantity(0); // out of stock
+        CartItemDto itemDto = new CartItemDto(1L, "Test Product", 1, BigDecimal.valueOf(9.99));
+        when(cartRepository.findByCustomerIdAndStatus(1L, "ACTIVE")).thenReturn(Optional.of(cart));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> cartService.addItemToCart(1L, itemDto))
+                .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
+                .hasMessageContaining("out of stock");
+    }
+
+    @Test
+    void testAddItemToCartThrowsWhenNotEnoughStock() {
+        product.setQuantity(3); // only 3 available
+        CartItemDto itemDto = new CartItemDto(1L, "Test Product", 5, BigDecimal.valueOf(9.99)); // requesting 5
+        when(cartRepository.findByCustomerIdAndStatus(1L, "ACTIVE")).thenReturn(Optional.of(cart));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(cartItemRepository.findByCartCartIdAndProductId(1L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> cartService.addItemToCart(1L, itemDto))
+                .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
+                .hasMessageContaining("Not enough stock");
     }
 
     @Test

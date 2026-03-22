@@ -60,6 +60,7 @@ public class ProductServiceImpl implements ProductService {
                 .map(existingProduct -> {
                     existingProduct.setName(productDto.getName());
                     existingProduct.setQuantity(productDto.getQuantity());
+                    if (productDto.getPrice() != null) existingProduct.setPrice(productDto.getPrice());
                     existingProduct.setVersion(productDto.getVersion());
                     productRepository.save(existingProduct);
                     logger.info("Updated product: {}", productDto);
