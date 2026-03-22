@@ -2,7 +2,10 @@ package code.vanilson.marketplace.controller;
 
 import code.vanilson.marketplace.dto.CustomerDto;
 import code.vanilson.marketplace.model.Customer;
+import code.vanilson.marketplace.repository.CustomerRepository;
 import code.vanilson.marketplace.service.CustomerService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,11 +28,38 @@ public class CustomerController {
 
     private static final Logger logger = LogManager.getLogger(CustomerController.class);
     private final CustomerService customerService;
+    private final CustomerRepository customerRepository;
 
     public static final String CUSTOMER = "/customers/";
 
-    public CustomerController(CustomerService customerService) {
+    public CustomerController(CustomerService customerService, CustomerRepository customerRepository) {
         this.customerService = customerService;
+        this.customerRepository = customerRepository;
+    }
+
+    /**
+     * Returns the Customer record for the currently authenticated user (matched by email).
+     * Used by the frontend to resolve customerId from the JWT.
+     */
+    @GetMapping("/me")
+    @Operation(summary = "Get current customer", description = "Returns the Customer linked to the authenticated user email")
+    public ResponseEntity<?> getCurrentCustomer(@AuthenticationPrincipal UserDetails principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+        String email = principal.getUsername();
+        // Find existing customer or auto-create one for users registered before this feature
+        Customer customer = customerRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    Customer newCustomer = new Customer();
+                    newCustomer.setEmail(email);
+                    newCustomer.setName(email.split("@")[0]);
+                    newCustomer.setAddress("");
+                    return customerRepository.save(newCustomer);
+                });
+        return ResponseEntity.ok(
+                new CustomerDto(customer.getCustomerId(), customer.getName(), customer.getEmail(), customer.getAddress())
+        );
     }
 
     /**

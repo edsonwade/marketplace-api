@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,4 +27,6 @@ public class OrderDto implements Serializable {
     CustomerDto customer;
     @NotNull
     List<OrderItem> orderItems;
+    /** Populated during checkout — cart total at time of order creation */
+    BigDecimal totalAmount;
 }

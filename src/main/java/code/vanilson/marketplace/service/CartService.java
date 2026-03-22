@@ -2,14 +2,13 @@ package code.vanilson.marketplace.service;
 
 import code.vanilson.marketplace.dto.CartDto;
 import code.vanilson.marketplace.dto.CartItemDto;
+import code.vanilson.marketplace.dto.CustomerDto;
+import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
 import code.vanilson.marketplace.mapper.CartMapper;
-import code.vanilson.marketplace.model.Cart;
-import code.vanilson.marketplace.model.CartItem;
-import code.vanilson.marketplace.model.Product;
-import code.vanilson.marketplace.repository.CartItemRepository;
-import code.vanilson.marketplace.repository.CartRepository;
-import code.vanilson.marketplace.repository.ProductRepository;
+import code.vanilson.marketplace.mapper.CustomerMapper;
+import code.vanilson.marketplace.model.*;
+import code.vanilson.marketplace.repository.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
@@ -27,11 +26,17 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final OrderRepository orderRepository;
 
-    public CartService(CartRepository cartRepository, CartItemRepository cartItemRepository, ProductRepository productRepository) {
+    public CartService(CartRepository cartRepository, CartItemRepository cartItemRepository,
+                       ProductRepository productRepository, CustomerRepository customerRepository,
+                       OrderRepository orderRepository) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
     }
 
     public List<CartDto> findAllCarts() {
@@ -80,20 +85,27 @@ public class CartService {
                     return cartRepository.save(newCart);
                 });
 
+        // Force-load lazy items collection BEFORE modifying it.
+        // Without this, orphanRemoval=true causes Hibernate to delete existing
+        // items when a second product is added (it sees an "empty" list).
+        int existingCount = cart.getItems().size();
+        logger.debug("Cart {} has {} existing items", cart.getCartId(), existingCount);
+
         Product product = productRepository.findById(cartItemDto.getProductId())
                 .orElseThrow(() -> new ObjectWithIdNotFound("Product not found with id: " + cartItemDto.getProductId()));
+
+        BigDecimal unitPrice = product.getPrice() != null ? product.getPrice() : BigDecimal.valueOf(9.99);
 
         Optional<CartItem> existingItem = cartItemRepository.findByCartCartIdAndProductId(cart.getCartId(), cartItemDto.getProductId());
 
         if (existingItem.isPresent()) {
             CartItem item = existingItem.get();
             item.setQuantity(item.getQuantity() + cartItemDto.getQuantity());
-            item.setPrice(product.getQuantity() != null ? BigDecimal.valueOf(product.getQuantity().doubleValue()) : BigDecimal.ZERO);
+            item.setPrice(unitPrice);
             cartItemRepository.save(item);
             logger.info("Updated quantity for existing cart item: {}", item.getCartItemId());
         } else {
-            CartItem newItem = new CartItem(cart, product.getProductId(), product.getName(), cartItemDto.getQuantity(),
-                    product.getQuantity() != null ? BigDecimal.valueOf(product.getQuantity().doubleValue()) : BigDecimal.ZERO);
+            CartItem newItem = new CartItem(cart, product.getProductId(), product.getName(), cartItemDto.getQuantity(), unitPrice);
             cart.addItem(newItem);
             logger.info("Added new cart item to cart: {}", cart.getCartId());
         }
@@ -178,6 +190,62 @@ public class CartService {
 
         logger.info("Cart checked out successfully, cart id: {}", checkedOutCart.getCartId());
         return CartMapper.toCartDto(checkedOutCart);
+    }
+
+    /**
+     * Checkout cart AND automatically create an Order.
+     * Returns the created OrderDto so the frontend can redirect to payment.
+     */
+    @Transactional
+    public OrderDto checkoutAndCreateOrder(Long customerId) {
+        logger.info("Checkout + create order for customer: {}", customerId);
+
+        Cart cart = cartRepository.findByCustomerIdAndStatus(customerId, "ACTIVE")
+                .orElseThrow(() -> new ObjectWithIdNotFound("Active cart not found for customer: " + customerId));
+
+        if (cart.getItems().isEmpty()) {
+            throw new IllegalStateException("Cannot checkout an empty cart");
+        }
+
+        // Mark cart as checked out
+        cart.setStatus("CHECKED_OUT");
+        cartRepository.save(cart);
+
+        // Resolve customer
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ObjectWithIdNotFound("Customer not found: " + customerId));
+
+        // Build Order entity
+        Order order = new Order();
+        order.setLocalDateTime(java.time.LocalDateTime.now());
+        order.setCustomer(customer);
+        order.setOrderItems(new java.util.HashSet<>());
+
+        Order savedOrder = orderRepository.save(order);
+
+        // Convert each CartItem → OrderItem
+        for (CartItem ci : cart.getItems()) {
+            Product product = productRepository.findById(ci.getProductId())
+                    .orElseThrow(() -> new ObjectWithIdNotFound("Product not found: " + ci.getProductId()));
+            OrderItem oi = new OrderItem();
+            oi.setOrder(savedOrder);
+            oi.setProduct(product);
+            oi.setQuantity(ci.getQuantity());
+            savedOrder.getOrderItems().add(oi);
+        }
+
+        Order finalOrder = orderRepository.save(savedOrder);
+        logger.info("Order {} created from cart {} for customer {}", finalOrder.getOrderId(), cart.getCartId(), customerId);
+
+        // Map to DTO
+        OrderDto dto = new OrderDto();
+        dto.setOrderId(finalOrder.getOrderId());
+        dto.setLocalDateTime(finalOrder.getLocalDateTime());
+        dto.setCustomer(CustomerMapper.toCustomerDto(customer));
+        dto.setOrderItems(new java.util.ArrayList<>(finalOrder.getOrderItems()));
+        // Attach cart total so frontend/payment knows the amount
+        dto.setTotalAmount(cart.getTotalAmount());
+        return dto;
     }
 
     @Transactional

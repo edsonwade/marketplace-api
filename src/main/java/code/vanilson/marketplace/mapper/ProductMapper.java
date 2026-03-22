@@ -18,7 +18,9 @@ public class ProductMapper {
             return null;
         }
 
-        return new ProductDto(product.getProductId(), product.getName(), product.getQuantity(), product.getVersion());
+        ProductDto dto = new ProductDto(product.getProductId(), product.getName(), product.getQuantity(), product.getVersion());
+        dto.setPrice(product.getPrice());
+        return dto;
     }
 
     public static List<ProductDto> toProductDtoList(List<Product> productList) {
@@ -44,17 +46,18 @@ public class ProductMapper {
         product.setName(productDto.getName());
         product.setQuantity(productDto.getQuantity());
         product.setVersion(productDto.getVersion());
+        if (productDto.getPrice() != null) product.setPrice(productDto.getPrice());
 
         return product;
     }
 
     public static Optional<ProductDto> toProduct(Optional<Product> productOptional) {
         return productOptional.map(product ->
-                new ProductDto(
-                        product.getProductId(),
-                        product.getName(),
-                        product.getQuantity(),
-                        product.getVersion()));
+        {
+                ProductDto dto = new ProductDto(product.getProductId(), product.getName(), product.getQuantity(), product.getVersion());
+                dto.setPrice(product.getPrice());
+                return dto;
+        });
     }
 }
 

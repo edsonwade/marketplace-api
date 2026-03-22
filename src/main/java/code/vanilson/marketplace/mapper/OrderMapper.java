@@ -23,7 +23,8 @@ public class OrderMapper {
                 order.getOrderId(),
                 order.getLocalDateTime(),
                 CustomerMapper.toCustomerDto(order.getCustomer()),
-                order.getOrderItems() != null ? new ArrayList<>(order.getOrderItems()) : new ArrayList<>()
+                order.getOrderItems() != null ? new ArrayList<>(order.getOrderItems()) : new ArrayList<>(),
+                null  // totalAmount — not stored on Order, only populated during checkout
         );
     }
 

@@ -27,6 +27,8 @@ public class Product {
     private Long productId;
     private String name;
     private Integer quantity;
+    @Column(precision = 10, scale = 2)
+    private java.math.BigDecimal price = java.math.BigDecimal.valueOf(9.99);
     @Version
     private Integer version;
 
