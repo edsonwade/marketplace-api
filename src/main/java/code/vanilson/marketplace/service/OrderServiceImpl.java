@@ -109,6 +109,16 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<OrderDto> findOrdersByCustomerId(Long customerId) {
+        return OrderMapper.toOrderDtoList(orderRepository.findByCustomerIdWithDetails(customerId));
+    }
+
+    @Override
+    public List<OrderDto> findUnpaidOrdersByCustomerId(Long customerId) {
+        return OrderMapper.toOrderDtoList(orderRepository.findUnpaidByCustomerId(customerId));
+    }
+
+    @Override
     @Transactional
     public boolean deleteOrderById(long id) {
         Optional<Order> orders = orderRepository.findById(id);

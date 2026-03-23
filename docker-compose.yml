@@ -13,7 +13,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       mongodb:
         condition: service_started
     ports:
@@ -93,6 +93,10 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 1
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
     networks:
       - backend
 
@@ -215,23 +219,6 @@ services:
     depends_on:
       - prometheus
 
-  flyway:
-    image: flyway/flyway
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - FLYWAY_URL=jdbc:postgresql://postgres:5432/marketplace_api
-      - FLYWAY_USER=postgres
-      - FLYWAY_PASSWORD=postgres
-      - FLYWAY_LOCATIONS=filesystem:/flyway/sql
-    volumes:
-      - ./db/migration:/flyway/sql
-    command: migrate
-    networks:
-      - backend
-    restart: "no"
-
   # -----------------------
   # FRONTEND (React + Nginx)
   # -----------------------
@@ -271,3 +258,5 @@ volumes:
   prometheus-data:
   grafana-data:
   kafka-data:
+  zookeeper-data:
+  zookeeper-logs:

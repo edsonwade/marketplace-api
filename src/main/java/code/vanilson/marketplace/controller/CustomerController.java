@@ -4,6 +4,7 @@ import code.vanilson.marketplace.dto.CustomerDto;
 import code.vanilson.marketplace.model.Customer;
 import code.vanilson.marketplace.repository.CustomerRepository;
 import code.vanilson.marketplace.service.CustomerService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,6 +68,7 @@ public class CustomerController {
      *
      * @return All customers in the database.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping
     @Operation(summary = "Get all customers", description = "Returns a list of all customers")
     @ApiResponses(value = {
@@ -82,6 +84,7 @@ public class CustomerController {
      * @param id The ID of the customer to retrieve.
      * @return The customer with the specified ID.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/{id}")
     @Operation(summary = "Get customer by ID", description = "Returns the customer with the specified ID")
     @ApiResponses(value = {
@@ -106,6 +109,7 @@ public class CustomerController {
             @ApiResponse(responseCode = "400", description = "Invalid customer data")
     })
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping
     public ResponseEntity<CustomerDto> createCustomer(@Valid @RequestBody CustomerDto customerDto) {
         logger.info("Creating new customer with name: {}, email: {}, address: {}",
@@ -140,6 +144,7 @@ public class CustomerController {
             @ApiResponse(responseCode = "400", description = "Invalid customer data"),
             @ApiResponse(responseCode = "404", description = "Customer not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<CustomerDto> updateCustomer(@Valid @RequestBody CustomerDto customerDto,
                                                    @PathVariable Long id) {
@@ -156,6 +161,7 @@ public class CustomerController {
      * 404 Not Found if a customer with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a customer", description = "Deletes the customer with the specified ID")
     @ApiResponses(value = {

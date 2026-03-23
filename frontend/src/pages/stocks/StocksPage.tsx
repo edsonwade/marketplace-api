@@ -7,6 +7,7 @@ import { Alert } from '../../components/ui/Alert';
 import { Spinner } from '../../components/ui/Spinner';
 import { Table, TableHead, TableBody, TableRow, TableHeadCell, TableCell } from '../../components/ui/Table';
 import { useStocks, useCreateStock, useUpdateStockQuantity, useDeleteStock } from '../../services';
+import { useAuthStore } from '../../store';
 import type { CreateStockRequest } from '../../api/types';
 
 export const StocksPage = () => {
@@ -21,6 +22,8 @@ export const StocksPage = () => {
   const createStock = useCreateStock();
   const updateStock = useUpdateStockQuantity();
   const deleteStock = useDeleteStock();
+  const { isAdmin } = useAuthStore();
+  const admin = isAdmin();
 
   const handleCreate = async () => {
     if (!formData.productId)            { setFormError('Product ID is required');      return; }
@@ -82,10 +85,12 @@ export const StocksPage = () => {
           <h1 className="text-2xl font-bold text-slate-900">Stock Management</h1>
           <p className="text-sm text-slate-500 mt-0.5">{stocks?.length ?? 0} stock entries</p>
         </div>
-        <Button onClick={() => { setFormError(null); setIsModalOpen(true); }} className="self-start sm:self-auto">
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add Stock Entry
-        </Button>
+        {admin && (
+          <Button onClick={() => { setFormError(null); setIsModalOpen(true); }} className="self-start sm:self-auto">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Stock Entry
+          </Button>
+        )}
       </div>
 
       <Table>
@@ -163,12 +168,19 @@ export const StocksPage = () => {
                         </>
                       ) : (
                         <>
-                          <Button size="sm" variant="outline" aria-label="Edit quantity" onClick={() => { setEditingId(stock.stockId); setEditQuantity(stock.quantity); }}>
-                            <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          </Button>
-                          <Button size="sm" variant="ghost" aria-label="Delete entry" onClick={() => setDeleteId(stock.stockId)} className="text-red-500 hover:bg-red-50">
-                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          </Button>
+                          {admin && (
+                            <Button size="sm" variant="outline" aria-label="Edit quantity" onClick={() => { setEditingId(stock.stockId); setEditQuantity(stock.quantity); }}>
+                              <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            </Button>
+                          )}
+                          {admin && (
+                            <Button size="sm" variant="ghost" aria-label="Delete entry" onClick={() => setDeleteId(stock.stockId)} className="text-red-500 hover:bg-red-50">
+                              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            </Button>
+                          )}
+                          {!admin && (
+                            <span className="text-xs text-slate-400 dark:text-slate-500 italic">View only</span>
+                          )}
                         </>
                       )}
                     </div>

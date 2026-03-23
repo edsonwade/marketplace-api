@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryProvider } from './hooks';
-import { ProtectedRoute, GuestRoute } from './hooks/ProtectedRoute';
+import { ProtectedRoute, AdminRoute, GuestRoute } from './hooks/ProtectedRoute';
 import { Layout } from './components/layout';
 import { FullPageSpinner } from './components/ui/Spinner';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -46,10 +46,10 @@ function App() {
                     <Route path="/products"  element={<ProductsPage />} />
                     <Route path="/cart"      element={<CartPage />} />
                     <Route path="/orders"    element={<OrdersPage />} />
-                    <Route path="/customers" element={<CustomersPage />} />
+                    <Route path="/customers" element={<AdminRoute><CustomersPage /></AdminRoute>} />
                     <Route path="/payments"  element={<PaymentsPage />} />
-                    <Route path="/discounts" element={<DiscountsPage />} />
-                    <Route path="/stocks"    element={<StocksPage />} />
+                    <Route path="/discounts" element={<AdminRoute><DiscountsPage /></AdminRoute>} />
+                    <Route path="/stocks"    element={<AdminRoute><StocksPage /></AdminRoute>} />
                     <Route path="/settings"  element={<SettingsPage />} />
                   </Route>
 

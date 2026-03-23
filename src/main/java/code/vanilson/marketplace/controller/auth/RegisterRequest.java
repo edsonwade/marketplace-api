@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 public class RegisterRequest {
     private String email;
     private String password;
-    private String role;
+    // role is intentionally removed — all self-registrations are USER.
+    // Admin accounts are created via Flyway seed only.
 }

@@ -8,10 +8,12 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -31,9 +33,20 @@ public class OrderController {
      *
      * @return All orders in the database.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping
     public ResponseEntity<Iterable<OrderDto>> getAllOrders() {
         return ResponseEntity.ok().body(orderService.findAllOrders());
+    }
+
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<List<OrderDto>> getOrdersByCustomerId(@PathVariable Long customerId) {
+        return ResponseEntity.ok().body(orderService.findOrdersByCustomerId(customerId));
+    }
+
+    @GetMapping("/customer/{customerId}/unpaid")
+    public ResponseEntity<List<OrderDto>> getUnpaidOrdersByCustomerId(@PathVariable Long customerId) {
+        return ResponseEntity.ok().body(orderService.findUnpaidOrdersByCustomerId(customerId));
     }
 
     /**
@@ -54,6 +67,7 @@ public class OrderController {
      * @param orderDto The order to create.
      * @return The created order.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<OrderDto> createOrder(@RequestBody @Valid OrderDto orderDto) {
 
@@ -73,6 +87,7 @@ public class OrderController {
     /**
      * Updates the fields in the specified order with the specified ID.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<OrderDto> updateOrder(@Valid @RequestBody OrderDto orderDto,
                                              @PathVariable Long id) {
@@ -89,6 +104,7 @@ public class OrderController {
      * 404 Not Found if a order with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteOrder(@PathVariable Long id) {
 

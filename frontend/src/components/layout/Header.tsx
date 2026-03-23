@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Menu, ShoppingCart, LogOut, Package, User, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../../store';
 import { useLogout } from '../../services';
-import { useCartStore } from '../../store';
+import { useBackendCartCount } from '../../services/cart/service';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -13,8 +13,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
   const { isAuthenticated, user } = useAuthStore();
   const navigate    = useNavigate();
   const logout      = useLogout();
-  const cartItems   = useCartStore((s) => s.items);
-  const cartCount   = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+  const cartCount = useBackendCartCount(user?.customerId ? Number(user.customerId) : undefined);
   const { theme, toggleTheme } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

@@ -33,7 +33,8 @@ class PaymentServiceTest {
     @Mock private StockRepository         stockRepository;
     @Mock private ProductRepository       productRepository;
     @Mock private CustomerRepository      customerRepository;
-    @Mock private EmailService            emailService;
+    @Mock private NotificationProducer    notificationProducer;
+    @Mock private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private PaymentService paymentService;
 
@@ -46,7 +47,8 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         paymentService = new PaymentService(paymentRepository, paymentMethodRepository, orderRepository,
-                stockRepository, productRepository, customerRepository, emailService);
+                stockRepository, productRepository, customerRepository,
+                notificationProducer, objectMapper);
 
         payment = new Payment(1L, 1L, "CREDIT_CARD", BigDecimal.valueOf(100));
         payment.setPaymentId(1L);
@@ -75,8 +77,10 @@ class PaymentServiceTest {
         orderItem.setProduct(product);
         orderItem.setQuantity(2);
 
+        Customer customer = new Customer(1L, "Test", "test@example.com", "");
         order = new Order();
         order.setOrderId(1L);
+        order.setCustomer(customer);
         Set<OrderItem> items = new HashSet<>();
         items.add(orderItem);
         order.setOrderItems(items);
@@ -136,6 +140,7 @@ class PaymentServiceTest {
     @Test
     void testProcessPaymentReturnsCompleted() {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(1L)).thenReturn(List.of()); // no previous payments
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
         when(productRepository.findById(any())).thenReturn(Optional.empty());
         when(stockRepository.findByProductProductId(any())).thenReturn(Optional.empty());
@@ -158,6 +163,7 @@ class PaymentServiceTest {
         p.setPrice(BigDecimal.valueOf(9.99));
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(1L)).thenReturn(List.of()); // no previous payments
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
         when(productRepository.findById(1L)).thenReturn(Optional.of(p));
         when(productRepository.save(any(Product.class))).thenReturn(p);
@@ -171,19 +177,22 @@ class PaymentServiceTest {
     }
 
     @Test
-    void testProcessPaymentSendsEmailOnCompletion() {
+    void testProcessPaymentQueuesKafkaNotificationOnCompletion() throws Exception {
         Customer customer = new Customer(1L, "John", "john@example.com", "123 St");
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(1L)).thenReturn(List.of());
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
         when(productRepository.findById(any())).thenReturn(Optional.empty());
         when(stockRepository.findByProductProductId(any())).thenReturn(Optional.empty());
         when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
+        when(objectMapper.writeValueAsString(any())).thenReturn("{\"email\":\"john@example.com\"}");
 
         paymentService.processPayment(1L, 1L, "CREDIT_CARD", null);
 
-        verify(emailService).sendPaymentConfirmation(
-                eq("john@example.com"), any(), any());
+        // Email now goes through Kafka, not directly via EmailService
+        verify(notificationProducer).sendEmailNotification(
+                eq("john@example.com"), anyString());
     }
 
     @Test
@@ -196,9 +205,33 @@ class PaymentServiceTest {
     }
 
     @Test
+    void testProcessPaymentThrowsWhenOrderDoesNotBelongToCustomer() {
+        // Order belongs to customer 1, but payment attempt is by customer 99
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> paymentService.processPayment(1L, 99L, "CREDIT_CARD", null))
+                .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
+                .hasMessageContaining("does not belong to you");
+    }
+
+    @Test
+    void testProcessPaymentThrowsWhenAlreadyPaid() {
+        Payment completed = new Payment(1L, 1L, "CREDIT_CARD", BigDecimal.valueOf(100));
+        completed.setPaymentStatus("COMPLETED");
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(1L)).thenReturn(List.of(completed));
+
+        assertThatThrownBy(() -> paymentService.processPayment(1L, 1L, "CREDIT_CARD", null))
+                .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
+                .hasMessageContaining("already been paid");
+    }
+
+    @Test
     void testProcessPaymentCalculatesAmountFromOrderItems() {
         // 2 items × 9.99 = 19.98
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(1L)).thenReturn(List.of()); // no previous payments
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
             Payment p = inv.getArgument(0);
             if (p.getAmount() != null) {

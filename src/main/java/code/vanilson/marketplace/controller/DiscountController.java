@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -43,6 +44,7 @@ public class DiscountController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping
     public ResponseEntity<DiscountDto> createDiscount(@RequestBody DiscountDto discountDto) {
         logger.info("Creating discount: {}", discountDto.getName());
@@ -56,12 +58,14 @@ public class DiscountController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<DiscountDto> updateDiscount(@PathVariable Long id, @RequestBody DiscountDto discountDto) {
         discountDto.setDiscountId(id);
         return ResponseEntity.ok().body(discountService.updateDiscount(discountDto));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteDiscount(@PathVariable Long id) {
         try {
@@ -96,6 +100,7 @@ public class DiscountController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping("/coupons")
     public ResponseEntity<CouponDto> createCoupon(@RequestBody CouponDto couponDto, @RequestParam Long discountId) {
         logger.info("Creating coupon: {}", couponDto.getCode());
@@ -109,12 +114,14 @@ public class DiscountController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PutMapping("/coupons/{id}")
     public ResponseEntity<CouponDto> updateCoupon(@PathVariable Long id, @RequestBody CouponDto couponDto) {
         couponDto.setCouponId(id);
         return ResponseEntity.ok().body(discountService.updateCoupon(couponDto));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/coupons/{id}")
     public ResponseEntity<?> deleteCoupon(@PathVariable Long id) {
         try {

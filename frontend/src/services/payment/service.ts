@@ -133,8 +133,14 @@ export const useProcessPayment = () => {
   return useMutation({
     mutationFn: (data: ProcessPaymentRequest) => paymentService.process(data),
     onSuccess: (_, variables) => {
+      // Payments
       queryClient.invalidateQueries({ queryKey: ['payments', 'order', variables.orderId] });
       queryClient.invalidateQueries({ queryKey: ['payments', 'customer', variables.customerId] });
+      // Cart — cart was checked out, badge must reset to 0
+      queryClient.invalidateQueries({ queryKey: ['cart', 'customer', variables.customerId] });
+      // Orders — dashboard and orders page must show the new order immediately
+      queryClient.invalidateQueries({ queryKey: ['orders', 'customer', variables.customerId] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'customer', variables.customerId, 'unpaid'] });
     },
   });
 };

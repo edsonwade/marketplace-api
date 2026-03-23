@@ -76,24 +76,21 @@ spring:
     bootstrap-servers: ${KAFKA_BROKERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
       retries: 3
       properties:
-        spring.json.add.type.headers: false
         enable.idempotence: true
         max.in.flight.requests.per.connection: 1
     consumer:
-      group-id: ${spring.application.name}
+      group-id: notification-service
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
       enable-auto-commit: false
-      properties:
-        spring.json.trusted.packages: "code.vanilson.marketplace.*"
     listener:
-      ack-mode: MANUAL_IMMEDIATE
-      concurrency: 3
+      ack-mode: RECORD
+      concurrency: 1
 
   # ─── MAIL ─────────────────────────────────────────────────────────────────────
   mail:

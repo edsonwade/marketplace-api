@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -36,11 +37,11 @@ public class AuthenticationService {
     private final CustomerRepository customerRepository;
 
     public AuthenticationResponse register(RegisterRequest request) {
-        String roleStr = request.getRole() == null || request.getRole().isBlank() ? "USER" : request.getRole();
+        // All self-registrations are USER — ADMIN accounts are seeded via Flyway only
         var user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(ROLE.valueOf(roleStr))
+                .role(ROLE.USER)
                 .status("ACTIVE")
                 .build();
         var savedUser = repository.save(user);
@@ -54,7 +55,7 @@ public class AuthenticationService {
             customerRepository.save(customer);
         }
 
-        var jwtToken = jwtService.generateToken(user);
+        var jwtToken = jwtService.generateToken(Map.of("role", user.getRole().name()), user);
         var refreshToken = jwtService.generateRefreshToken(user);
         saveUserToken(savedUser, jwtToken);
         return AuthenticationResponse.builder()
@@ -75,7 +76,7 @@ public class AuthenticationService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IncorrectPasswordException("auth.incorrect.password", "INCORRECT_PASSWORD");
         }
-        var jwtToken = jwtService.generateToken(user);
+        var jwtToken = jwtService.generateToken(Map.of("role", user.getRole().name()), user);
         var refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
         saveUserToken(user, jwtToken);
@@ -133,7 +134,7 @@ public class AuthenticationService {
             var user = this.repository.findByEmail(userEmail)
                     .orElseThrow();
             if (jwtService.isTokenValid(refreshToken, user)) {
-                var accessToken = jwtService.generateToken(user);
+                var accessToken = jwtService.generateToken(Map.of("role", user.getRole().name()), user);
                 revokeAllUserTokens(user);
                 saveUserToken(user, accessToken);
                 var authResponse = AuthenticationResponse.builder()

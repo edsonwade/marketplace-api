@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -24,6 +25,7 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping
     public ResponseEntity<List<PaymentDto>> getAllPayments() {
         return ResponseEntity.ok().body(paymentService.findAllPayments());
@@ -36,6 +38,7 @@ public class PaymentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/order/{orderId}")
     public ResponseEntity<List<PaymentDto>> getPaymentsByOrderId(@PathVariable Long orderId) {
         return ResponseEntity.ok().body(paymentService.findPaymentsByOrderId(orderId));
@@ -46,6 +49,7 @@ public class PaymentController {
         return ResponseEntity.ok().body(paymentService.findPaymentsByCustomerId(customerId));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping
     public ResponseEntity<PaymentDto> createPayment(@RequestBody PaymentDto paymentDto) {
         logger.info("Creating payment for order: {}", paymentDto.getOrderId());
@@ -69,11 +73,13 @@ public class PaymentController {
         return ResponseEntity.ok().body(saved);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<PaymentDto> updatePaymentStatus(@PathVariable Long id, @RequestParam String status) {
         return ResponseEntity.ok().body(paymentService.updatePaymentStatus(id, status));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePayment(@PathVariable Long id) {
         try {
@@ -96,6 +102,7 @@ public class PaymentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping("/methods")
     public ResponseEntity<PaymentMethodDto> addPaymentMethod(@RequestBody PaymentMethodDto paymentMethodDto) {
         logger.info("Adding payment method for customer: {}", paymentMethodDto.getCustomerId());
@@ -114,6 +121,7 @@ public class PaymentController {
         return ResponseEntity.ok().body(paymentService.setDefaultPaymentMethod(customerId, id));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/methods/{id}")
     public ResponseEntity<?> deletePaymentMethod(@PathVariable Long id) {
         try {

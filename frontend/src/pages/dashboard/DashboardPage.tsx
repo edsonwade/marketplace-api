@@ -7,10 +7,14 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Spinner';
-import { useProducts, useCustomers, useOrders, usePayments } from '../../services';
+import { useProducts } from '../../services';
+import { useAuthStore } from '../../store';
+import apiClient from '../../api/client/apiClient';
+import type { Order, Payment } from '../../api/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -34,7 +38,6 @@ function buildRevenuePerMonth(payments: { createdAt?: string; amount?: number | 
   });
   return MONTHS.map((name, i) => ({ name, revenue: Math.round((totals[i] ?? 0) * 100) / 100 }));
 }
-
 
 // ── KPI Card ─────────────────────────────────────────────────────────────────
 interface KpiCardProps {
@@ -79,38 +82,89 @@ const ChartTooltip = ({ active, payload, label, prefix = '' }: any) => {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export const DashboardPage = () => {
-  const { data: products,  isLoading: lP }   = useProducts();
-  const { data: customers, isLoading: lC }   = useCustomers();
-  const { data: orders,    isLoading: lO }   = useOrders();
-  const { data: payments,  isLoading: lPay } = usePayments();
-  const isLoading = lP || lC || lO || lPay;
+  const { user, isAdmin } = useAuthStore();
+  const admin = isAdmin();
+  const customerId = user?.customerId ? Number(user.customerId) : undefined;
+
+  // Products — visible to all
+  const { data: products, isLoading: lP } = useProducts();
+
+  // Admin-only queries — only fire when user is admin to avoid 403 errors
+  const { data: customers, isLoading: lC } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => apiClient.get('/api/v1/customers').then(r => r.data as any[]),
+    enabled: admin,
+    staleTime: 1000 * 60 * 5,
+  });
+  const { data: allOrders, isLoading: lAO } = useQuery({
+    queryKey: ['orders'],
+    queryFn: () => apiClient.get('/api/v1/orders').then(r => r.data as Order[]),
+    enabled: admin,
+    staleTime: 1000 * 60 * 5,
+  });
+  const { data: allPayments, isLoading: lAP } = useQuery({
+    queryKey: ['payments'],
+    queryFn: () => apiClient.get('/api/v1/payments').then(r => r.data as Payment[]),
+    enabled: admin,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // User queries — own data only
+  const { data: myOrders, isLoading: lMO } = useQuery({
+    queryKey: ['orders', 'customer', customerId],
+    queryFn: () => apiClient.get<Order[]>(`/api/v1/orders/customer/${customerId}`).then(r => r.data),
+    enabled: !admin && !!customerId,
+  });
+
+  const { data: myPayments, isLoading: lMP } = useQuery({
+    queryKey: ['payments', 'customer', customerId],
+    queryFn: () => apiClient.get<Payment[]>(`/api/v1/payments/customer/${customerId}`).then(r => r.data),
+    enabled: !admin && !!customerId,
+  });
+
+  // Resolve which dataset to use based on role
+  const orders   = admin ? (allOrders   ?? []) : (myOrders   ?? []);
+  const payments = admin ? (allPayments ?? []) : (myPayments ?? []);
+
+  const isLoading = admin
+    ? (lP || lC || lAO || lAP)
+    : (lP || lMO || lMP);
 
   // Stock alerts — products that need attention
   const lowStockAlerts = (products ?? []).filter((p) => p.quantity > 0 && p.quantity < 10);
   const outOfStock     = (products ?? []).filter((p) => p.quantity === 0);
   const criticalItems  = [...outOfStock, ...lowStockAlerts].slice(0, 5);
 
-  const totalRevenue = (payments ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const totalRevenue = payments.reduce((s, p) => s + Number(p.amount ?? 0), 0);
 
-  const kpis: KpiCardProps[] = [
-    { label: 'Products',  value: products?.length  ?? 0, icon: Package,       iconBg: 'bg-blue-100 dark:bg-blue-900/40',    iconColor: 'text-blue-600 dark:text-blue-400',    to: '/products'  },
-    { label: 'Customers', value: customers?.length ?? 0, icon: Users,         iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconColor: 'text-emerald-600 dark:text-emerald-400', to: '/customers' },
-    { label: 'Orders',    value: orders?.length    ?? 0, icon: ClipboardList, iconBg: 'bg-violet-100 dark:bg-violet-900/40',  iconColor: 'text-violet-600 dark:text-violet-400',  to: '/orders'    },
-    { label: 'Revenue',   value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconColor: 'text-amber-600 dark:text-amber-400', to: '/payments'  },
-  ];
+  // KPI cards — role-aware
+  const kpis: KpiCardProps[] = admin
+    ? [
+        { label: 'Products',  value: products?.length  ?? 0,  icon: Package,       iconBg: 'bg-blue-100 dark:bg-blue-900/40',       iconColor: 'text-blue-600 dark:text-blue-400',    to: '/products'  },
+        { label: 'Customers', value: customers?.length ?? 0,  icon: Users,         iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconColor: 'text-emerald-600 dark:text-emerald-400', to: '/customers' },
+        { label: 'Orders',    value: orders.length,           icon: ClipboardList, iconBg: 'bg-violet-100 dark:bg-violet-900/40',   iconColor: 'text-violet-600 dark:text-violet-400',  to: '/orders'    },
+        { label: 'Revenue',   value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconColor: 'text-amber-600 dark:text-amber-400',  to: '/payments'  },
+      ]
+    : [
+        { label: 'Products',    value: products?.length ?? 0, icon: Package,       iconBg: 'bg-blue-100 dark:bg-blue-900/40',     iconColor: 'text-blue-600 dark:text-blue-400',   to: '/products' },
+        { label: 'My Orders',   value: orders.length,         icon: ClipboardList, iconBg: 'bg-violet-100 dark:bg-violet-900/40', iconColor: 'text-violet-600 dark:text-violet-400', to: '/orders'  },
+        { label: 'My Spending', value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconColor: 'text-amber-600 dark:text-amber-400', to: '/payments' },
+      ];
 
-  const ordersData  = buildOrdersPerMonth(orders ?? []);
-  const revenueData = buildRevenuePerMonth(payments ?? []);
+  const ordersData  = buildOrdersPerMonth(orders);
+  const revenueData = buildRevenuePerMonth(payments);
 
-  const axisStyle  = { fontSize: 11, fill: '#94a3b8' };
-  const gridStyle  = { stroke: '#e2e8f0', strokeOpacity: 0.5 };
+  const axisStyle = { fontSize: 11, fill: '#94a3b8' };
+  const gridStyle = { stroke: '#e2e8f0', strokeOpacity: 0.5 };
 
   return (
     <div className="space-y-6 max-w-7xl">
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Overview of your marketplace</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          {admin ? 'Overview of your marketplace' : 'Overview of your account'}
+        </p>
       </div>
 
       {/* KPI row */}
@@ -121,14 +175,16 @@ export const DashboardPage = () => {
           </div>
       }
 
-      {/* Charts row 1 */}
+      {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Orders per month */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-slate-400" aria-hidden="true" />
-              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Orders per Month</h2>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {admin ? 'Orders per Month' : 'My Orders per Month'}
+              </h2>
             </div>
           </CardHeader>
           <CardBody className="pt-2 pb-4">
@@ -155,7 +211,9 @@ export const DashboardPage = () => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-slate-400" aria-hidden="true" />
-              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Revenue per Month</h2>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {admin ? 'Revenue per Month' : 'My Spending per Month'}
+              </h2>
             </div>
           </CardHeader>
           <CardBody className="pt-2 pb-4">
@@ -172,63 +230,68 @@ export const DashboardPage = () => {
         </Card>
       </div>
 
-      {/* Charts row 2 */}
+      {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Stock alerts panel */}
-      <Card>
-      <CardHeader>
-      <div className="flex items-center gap-2">
-          <Package className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Stock Alerts</h2>
-      </div>
-      {(outOfStock.length > 0 || lowStockAlerts.length > 0) && (
-      <Link to="/stocks" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-      Manage <ArrowRight className="h-3 w-3" aria-hidden="true" />
-      </Link>
-      )}
-      </CardHeader>
-      <CardBody className="p-0">
-      {criticalItems.length === 0 ? (
-      <div className="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
-      <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-      <TrendingUp className="h-5 w-5 text-emerald-500" aria-hidden="true" />
-      </div>
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">All stock healthy</p>
-          </div>
-          ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {criticalItems.map((p) => (
-                  <div key={p.productId} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${p.quantity === 0 ? 'bg-red-500' : 'bg-amber-500'}`} aria-hidden="true" />
-                      <span className="text-sm text-slate-700 dark:text-slate-200 truncate">{p.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400">×{p.quantity}</span>
-                      {p.quantity === 0
-                        ? <Badge variant="danger" size="sm">Out</Badge>
-                        : <Badge variant="warning" size="sm">Low</Badge>}
-                    </div>
-                  </div>
-                ))}
-                {(outOfStock.length + lowStockAlerts.length) > 5 && (
-                  <div className="px-4 py-2 text-center">
-                    <Link to="/stocks" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                      +{(outOfStock.length + lowStockAlerts.length) - 5} more items need attention
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardBody>
-        </Card>
 
-        {/* Recent Orders */}
-        <Card className="lg:col-span-2">
+        {/* Stock alerts — only for admin */}
+        {admin && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Stock Alerts</h2>
+              </div>
+              {(outOfStock.length > 0 || lowStockAlerts.length > 0) && (
+                <Link to="/stocks" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                  Manage <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                </Link>
+              )}
+            </CardHeader>
+            <CardBody className="p-0">
+              {criticalItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-emerald-500" aria-hidden="true" />
+                  </div>
+                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">All stock healthy</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {criticalItems.map((p) => (
+                    <div key={p.productId} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${p.quantity === 0 ? 'bg-red-500' : 'bg-amber-500'}`} aria-hidden="true" />
+                        <span className="text-sm text-slate-700 dark:text-slate-200 truncate">{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">×{p.quantity}</span>
+                        {p.quantity === 0
+                          ? <Badge variant="danger" size="sm">Out</Badge>
+                          : <Badge variant="warning" size="sm">Low</Badge>}
+                      </div>
+                    </div>
+                  ))}
+                  {(outOfStock.length + lowStockAlerts.length) > 5 && (
+                    <div className="px-4 py-2 text-center">
+                      <Link to="/stocks" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                        +{(outOfStock.length + lowStockAlerts.length) - 5} more items need attention
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Recent Orders — spans 2 cols for admin, full width for user */}
+        <Card className={admin ? 'lg:col-span-2' : 'lg:col-span-3'}>
           <CardHeader>
             <div className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4 text-slate-400" aria-hidden="true" />
-              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recent Orders</h2>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {admin ? 'Recent Orders' : 'My Recent Orders'}
+              </h2>
             </div>
             <Link to="/orders" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
               View all <ArrowRight className="h-3 w-3" aria-hidden="true" />
@@ -237,30 +300,35 @@ export const DashboardPage = () => {
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {isLoading
               ? <div className="py-8 flex justify-center"><Spinner /></div>
-              : !orders?.length
+              : orders.length === 0
                 ? <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
                     <AlertCircle className="h-6 w-6" aria-hidden="true" />
                     <p className="text-sm">No orders yet</p>
                   </div>
-                : orders.slice(0, 5).map((order) => (
-                    <div key={order.orderId} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
-                          <ClipboardList className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" aria-hidden="true" />
+                : [...orders]
+                    .sort((a, b) => new Date(b.localDateTime ?? 0).getTime() - new Date(a.localDateTime ?? 0).getTime())
+                    .slice(0, 5)
+                    .map((order) => (
+                      <div key={order.orderId} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
+                            <ClipboardList className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" aria-hidden="true" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Order #{order.orderId}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                              {admin ? (order.customer?.name || 'Unknown') : `${order.orderItems?.length ?? 0} item(s)`}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Order #{order.orderId}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{order.customer?.name || 'Unknown'}</p>
+                        <div className="text-right shrink-0 ml-4">
+                          <Badge variant="success" dot>Completed</Badge>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                            {order.localDateTime ? new Date(order.localDateTime).toLocaleDateString() : '—'}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right shrink-0 ml-4">
-                        <Badge variant="success" dot>Completed</Badge>
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                          {order.localDateTime ? new Date(order.localDateTime).toLocaleDateString() : '—'}
-                        </p>
-                      </div>
-                    </div>
-                  ))
+                    ))
             }
           </div>
         </Card>

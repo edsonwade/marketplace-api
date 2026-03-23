@@ -10,7 +10,7 @@ import { Table, TableHead, TableBody, TableRow, TableHeadCell, TableCell } from 
 import { usePaginatedData } from '../../hooks/usePaginatedData';
 import { Paginator } from '../../hooks/Paginator';
 import { useProducts, useCreateProduct, useDeleteProduct, useUpdateProduct } from '../../services';
-import { useAddItemToCart } from '../../services/cart/service';
+import { useAddItemToCart, useBackendCart } from '../../services/cart/service';
 import { useAuthStore } from '../../store';
 import type { Product } from '../../api/types';
 
@@ -30,9 +30,15 @@ export const ProductsPage = () => {
   const deleteProduct  = useDeleteProduct();
   const updateProduct  = useUpdateProduct();
   const addToCart      = useAddItemToCart();
-  const { user }       = useAuthStore();
+  const { user, isAdmin } = useAuthStore();
+  const admin          = isAdmin();
   const customerId     = user?.customerId ? Number(user.customerId) : undefined;
+  const { data: cart } = useBackendCart(customerId);
   const [cartMsg, setCartMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  // Returns how many units of a product are already in the cart
+  const inCartQty = (productId: number): number =>
+    cart?.items?.find(i => i.productId === productId)?.quantity ?? 0;
 
   // Apply status filter before pagination
   const filtered = (products ?? []).filter((p) => {
@@ -69,12 +75,18 @@ export const ProductsPage = () => {
   const handleAddToCart = async (product: Product) => {
     if (!customerId) { setCartMsg({ text: 'Please log in to add items to cart.', ok: false }); return; }
     if (product.quantity === 0) { setCartMsg({ text: `${product.name} is out of stock.`, ok: false }); return; }
+    const alreadyInCart = inCartQty(product.productId);
+    if (alreadyInCart >= product.quantity) {
+      setCartMsg({ text: `All available stock of ${product.name} is already in your cart.`, ok: false });
+      return;
+    }
     try {
       await addToCart.mutateAsync({ customerId, productId: product.productId, quantity: 1 });
       setCartMsg({ text: `${product.name} added to cart!`, ok: true });
       setTimeout(() => setCartMsg(null), 2500);
-    } catch {
-      setCartMsg({ text: 'Failed to add to cart.', ok: false });
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Failed to add to cart.';
+      setCartMsg({ text: msg, ok: false });
     }
   };
 
@@ -96,9 +108,11 @@ export const ProductsPage = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Products</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{products?.length ?? 0} total products</p>
         </div>
-        <Button onClick={() => setIsAdding(true)} className="self-start sm:self-auto">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Add Product
-        </Button>
+        {admin && (
+          <Button onClick={() => setIsAdding(true)} className="self-start sm:self-auto">
+            <Plus className="h-4 w-4" aria-hidden="true" /> Add Product
+          </Button>
+        )}
       </div>
 
       {/* Add form */}
@@ -169,7 +183,7 @@ export const ProductsPage = () => {
               <TableHeadCell>Price</TableHeadCell>
               <TableHeadCell>Quantity</TableHeadCell>
               <TableHeadCell>Status</TableHeadCell>
-              <TableHeadCell className="text-right">Actions</TableHeadCell>
+              <TableHeadCell className="text-right">{admin ? 'Actions' : 'Cart'}</TableHeadCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -216,15 +230,23 @@ export const ProductsPage = () => {
                       </>
                     ) : (
                       <>
-                        <Button size="sm" variant="outline" aria-label={`Edit ${product.name}`} onClick={() => { setEditingId(product.productId); setEditQuantity(product.quantity); setEditPrice(Number(product.price ?? 0)); }}>
-                          <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        </Button>
-                        <Button size="sm" variant="ghost" aria-label={`Add to cart`} onClick={() => handleAddToCart(product)} disabled={product.quantity === 0} className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">
+                        {admin && (
+                          <Button size="sm" variant="outline" aria-label={`Edit ${product.name}`} onClick={() => { setEditingId(product.productId); setEditQuantity(product.quantity); setEditPrice(Number(product.price ?? 0)); }}>
+                            <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" aria-label={`Add to cart`}
+                          onClick={() => handleAddToCart(product)}
+                          disabled={product.quantity === 0 || inCartQty(product.productId) >= product.quantity}
+                          title={inCartQty(product.productId) >= product.quantity && product.quantity > 0 ? 'All stock in cart' : undefined}
+                          className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">
                           <CartIcon className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
-                        <Button size="sm" variant="ghost" aria-label={`Delete ${product.name}`} onClick={() => setDeleteId(product.productId)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30">
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        </Button>
+                        {admin && (
+                          <Button size="sm" variant="ghost" aria-label={`Delete ${product.name}`} onClick={() => setDeleteId(product.productId)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30">
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
