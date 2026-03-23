@@ -90,6 +90,38 @@ public class NotificationService {
         }
     }
 
+    @KafkaListener(topics = "marketplace-order-notifications", groupId = "notification-service")
+    public void handleOrderNotification(String message) {
+        try {
+            logger.info("Received order notification from Kafka: {}", message);
+            EmailNotificationEvent event = objectMapper.readValue(message, EmailNotificationEvent.class);
+            sendNotification(event.getEmail(), event.getSubject(), event.getMessage(), event.getType());
+        } catch (Exception e) {
+            logger.error("Error processing order notification: {}", e.getMessage());
+        }
+    }
+
+    @KafkaListener(topics = "marketplace-payment-notifications", groupId = "notification-service")
+    public void handlePaymentNotification(String message) {
+        try {
+            logger.info("Received payment notification from Kafka: {}", message);
+            // Payment topic receives same format as email topic — just log, email already sent via email topic
+            EmailNotificationEvent event = objectMapper.readValue(message, EmailNotificationEvent.class);
+            logger.info("Payment confirmed for: {} — type: {}", event.getEmail(), event.getType());
+        } catch (Exception e) {
+            logger.error("Error processing payment notification: {}", e.getMessage());
+        }
+    }
+
+    @KafkaListener(topics = "marketplace-notifications", groupId = "notification-service")
+    public void handleGeneralNotification(String message) {
+        try {
+            logger.info("Received general notification from Kafka: {}", message);
+        } catch (Exception e) {
+            logger.error("Error processing general notification: {}", e.getMessage());
+        }
+    }
+
     public static class EmailNotificationEvent {
         private String email;
         private String subject;

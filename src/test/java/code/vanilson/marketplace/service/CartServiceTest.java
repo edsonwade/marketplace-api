@@ -31,6 +31,8 @@ class CartServiceTest {
     @Mock private CustomerRepository customerRepository;
     @Mock private OrderRepository    orderRepository;
     @Mock private StockRepository    stockRepository;
+    @Mock private NotificationProducer notificationProducer;
+    @Mock private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private CartService cartService;
 
@@ -43,7 +45,8 @@ class CartServiceTest {
     void setUp() {
         cartService = new CartService(
                 cartRepository, cartItemRepository,
-                productRepository, customerRepository, orderRepository, stockRepository);
+                productRepository, customerRepository, orderRepository, stockRepository,
+                notificationProducer, objectMapper);
 
         product = new Product();
         product.setProductId(1L);
@@ -210,10 +213,12 @@ class CartServiceTest {
 
     // ── updateQuantity ────────────────────────────────────────────────────────
 
+
     @Test
     void testUpdateCartItemQuantityUpdatesQuantity() {
         cart.getItems().add(cartItem);
         when(cartRepository.findByCustomerIdAndStatus(1L, "ACTIVE")).thenReturn(Optional.of(cart));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
         when(cartItemRepository.findByCartCartIdAndProductId(1L, 1L)).thenReturn(Optional.of(cartItem));
         when(cartRepository.save(any(Cart.class))).thenReturn(cart);
 

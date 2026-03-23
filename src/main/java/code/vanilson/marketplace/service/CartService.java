@@ -29,16 +29,22 @@ public class CartService {
     private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
     private final StockRepository stockRepository;
+    private final NotificationProducer notificationProducer;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public CartService(CartRepository cartRepository, CartItemRepository cartItemRepository,
                        ProductRepository productRepository, CustomerRepository customerRepository,
-                       OrderRepository orderRepository, StockRepository stockRepository) {
+                       OrderRepository orderRepository, StockRepository stockRepository,
+                       NotificationProducer notificationProducer,
+                       com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
         this.stockRepository = stockRepository;
+        this.notificationProducer = notificationProducer;
+        this.objectMapper = objectMapper;
     }
 
     public List<CartDto> findAllCarts() {
@@ -262,6 +268,24 @@ public class CartService {
 
         Order finalOrder = orderRepository.save(savedOrder);
         logger.info("Order {} created from cart {} for customer {}", finalOrder.getOrderId(), cart.getCartId(), customerId);
+
+        // ── Publish order-created event to Kafka ────────────────────────────
+        try {
+            java.util.Map<String, String> event = new java.util.HashMap<>();
+            event.put("email", customer.getEmail());
+            event.put("subject", "Order Confirmation - Order #" + finalOrder.getOrderId());
+            event.put("message", String.format(
+                    "Dear %s,%n%nYour order #%d has been confirmed with %d item(s).%n%nTotal: $%s USD%n%nThank you for shopping with us!",
+                    customer.getName(), finalOrder.getOrderId(),
+                    finalOrder.getOrderItems().size(), cart.getTotalAmount()));
+            event.put("type", "ORDER_CREATED");
+            notificationProducer.sendOrderNotification(
+                    String.valueOf(finalOrder.getOrderId()),
+                    objectMapper.writeValueAsString(event));
+            logger.info("Order notification queued via Kafka for order {}", finalOrder.getOrderId());
+        } catch (Exception e) {
+            logger.warn("Failed to queue order notification: {}", e.getMessage());
+        }
 
         // Map to DTO
         OrderDto dto = new OrderDto();

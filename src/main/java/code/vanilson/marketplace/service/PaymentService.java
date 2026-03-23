@@ -162,6 +162,8 @@ public class PaymentService {
                     event.put("type", "PAYMENT_COMPLETED");
                     String json = objectMapper.writeValueAsString(event);
                     notificationProducer.sendEmailNotification(customer.getEmail(), json);
+                    // Also publish to the dedicated payment topic
+                    notificationProducer.sendPaymentNotification(String.valueOf(saved.getPaymentId()), json);
                     logger.info("Payment notification queued via Kafka for customer {}", customerId);
                 } catch (Exception e) {
                     // Kafka failure must NOT rollback the payment transaction
