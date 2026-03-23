@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -34,6 +35,7 @@ public class StockController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping
     public ResponseEntity<StockDto> createStock(@RequestBody StockDto stockDto) {
         logger.info("Creating stock for product id: {}", stockDto.getProductId());
@@ -47,6 +49,7 @@ public class StockController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PatchMapping("/product/{productId}")
     public ResponseEntity<?> updateStockQuantity(@PathVariable Long productId, @RequestParam Integer quantity) {
         logger.info("Updating stock quantity for product id: {} to {}", productId, quantity);
@@ -56,6 +59,7 @@ public class StockController {
         return ResponseEntity.notFound().build();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteStock(@PathVariable Long id) {
         logger.info("Deleting stock with id: {}", id);

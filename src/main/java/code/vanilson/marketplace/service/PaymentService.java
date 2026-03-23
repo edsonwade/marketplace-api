@@ -2,18 +2,22 @@ package code.vanilson.marketplace.service;
 
 import code.vanilson.marketplace.dto.PaymentDto;
 import code.vanilson.marketplace.dto.PaymentMethodDto;
+import code.vanilson.marketplace.exception.BadRequestException;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
 import code.vanilson.marketplace.mapper.PaymentMapper;
 import code.vanilson.marketplace.model.Order;
 import code.vanilson.marketplace.model.Payment;
 import code.vanilson.marketplace.model.PaymentMethod;
 import code.vanilson.marketplace.repository.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,19 +32,21 @@ public class PaymentService {
     private final StockRepository stockRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
-    private final EmailService emailService;
+    private final NotificationProducer notificationProducer;
+    private final ObjectMapper objectMapper;
 
     public PaymentService(PaymentRepository paymentRepository, PaymentMethodRepository paymentMethodRepository,
                           OrderRepository orderRepository, StockRepository stockRepository,
                           ProductRepository productRepository, CustomerRepository customerRepository,
-                          EmailService emailService) {
+                          NotificationProducer notificationProducer, ObjectMapper objectMapper) {
         this.paymentRepository = paymentRepository;
         this.paymentMethodRepository = paymentMethodRepository;
         this.orderRepository = orderRepository;
         this.stockRepository = stockRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
-        this.emailService = emailService;
+        this.notificationProducer = notificationProducer;
+        this.objectMapper = objectMapper;
     }
 
     public List<PaymentDto> findAllPayments() {
@@ -84,6 +90,18 @@ public class PaymentService {
         // Fetch the order to get the total amount
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ObjectWithIdNotFound("Order not found with id: " + orderId));
+
+        // Security: verify the order belongs to the customer making the payment
+        if (order.getCustomer() == null || !order.getCustomer().getCustomerId().equals(customerId)) {
+            throw new BadRequestException("Order #" + orderId + " does not belong to you");
+        }
+
+        // Prevent double payment: check if already completed
+        boolean alreadyPaid = paymentRepository.findByOrderId(orderId).stream()
+                .anyMatch(p -> "COMPLETED".equals(p.getPaymentStatus()));
+        if (alreadyPaid) {
+            throw new BadRequestException("Order #" + orderId + " has already been paid");
+        }
 
         // Calculate amount from order items (product.price * quantity)
         java.math.BigDecimal amount = order.getOrderItems().stream()
@@ -131,17 +149,23 @@ public class PaymentService {
                 });
             });
 
-            // ── Send payment confirmation email ─────────────────────────────
+            // ── Send payment confirmation via Kafka ──────────────────────────
+            // NotificationService consumes this topic and sends the email + saves to MongoDB
             customerRepository.findById(customerId).ifPresent(customer -> {
                 try {
-                    emailService.sendPaymentConfirmation(
-                            customer.getEmail(),
-                            String.valueOf(saved.getPaymentId()),
-                            "$" + amount + " USD"
-                    );
+                    Map<String, String> event = new HashMap<>();
+                    event.put("email", customer.getEmail());
+                    event.put("subject", "Payment Confirmation - Order #" + orderId);
+                    event.put("message", String.format(
+                            "Dear %s,%n%nYour payment of $%s USD for Order #%d has been processed successfully.%n%nPayment ID: %s%nPayment Method: %s%n%nThank you for your purchase!",
+                            customer.getName(), amount, orderId, saved.getPaymentId(), paymentMethod));
+                    event.put("type", "PAYMENT_COMPLETED");
+                    String json = objectMapper.writeValueAsString(event);
+                    notificationProducer.sendEmailNotification(customer.getEmail(), json);
+                    logger.info("Payment notification queued via Kafka for customer {}", customerId);
                 } catch (Exception e) {
-                    // Email failure must NOT rollback the payment transaction
-                    logger.warn("Payment email notification failed for customer {}: {}", customerId, e.getMessage());
+                    // Kafka failure must NOT rollback the payment transaction
+                    logger.warn("Failed to queue payment notification for customer {}: {}", customerId, e.getMessage());
                 }
             });
         } else {

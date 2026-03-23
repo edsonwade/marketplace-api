@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { setAccessToken } from '../../api/client/apiClient';
 import { cookies } from '../../utils/cookies';
+import { decodeToken } from '../../utils/jwt';
 import { useAuthStore } from '../../store';
 import type { AuthenticationRequest, AuthenticationResponse, RegisterRequest } from '../../api/types';
 
@@ -35,21 +36,24 @@ export const authService = {
 };
 
 export const useLogin = () => {
-  const { setAuth, setUser } = useAuthStore();
+  const { setAuth, setUser, setRole } = useAuthStore();
   return useMutation({
     mutationFn: (credentials: AuthenticationRequest) => authService.login(credentials),
     onSuccess: async (data) => {
       setAccessToken(data.access_token);
       cookies.set('refresh_token', data.refresh_token, 7);
+      // Decode role from access token
+      const payload = decodeToken(data.access_token);
+      const role = payload?.role ?? 'USER';
+      setRole(role);
       // Resolve the Customer record linked to this user email
       try {
         const res = await apiClient.get('/api/v1/customers/me');
         const customer = res.data;
-        setAuth(customer);
+        setAuth(customer, role);
         setUser(customer);
       } catch {
-        // No customer record yet — user is authenticated but has no customer profile
-        setAuth();
+        setAuth(undefined, role);
       }
     },
   });

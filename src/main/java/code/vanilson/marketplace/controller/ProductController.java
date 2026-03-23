@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -63,6 +64,7 @@ public class ProductController {
      * @param product The product to create.
      * @return The created product.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping
     public ResponseEntity<ProductDto> createProduct(@RequestBody ProductDto product) {
         logger.info("Creating new product with name: {}, quantity: {}", product.getName(), product.getQuantity());
@@ -92,6 +94,7 @@ public class ProductController {
      * CONFLICT if the eTag does not match the version of the product to update
      * INTERNAL_SERVICE_ERROR if there is a problem creating the location URI
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(@RequestBody ProductDto product,
                                            @PathVariable Integer id,
@@ -147,6 +150,7 @@ public class ProductController {
      * 404 Not Found if a product with the specified ID is not found
      * 500 Internal Service Error if an error occurs during deletion
      */
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable Integer id) {
 

@@ -7,6 +7,9 @@ import { Table, TableHead, TableBody, TableRow, TableHeadCell, TableCell } from 
 import { usePaginatedData } from '../../hooks/usePaginatedData';
 import { Paginator } from '../../hooks/Paginator';
 import { useOrders } from '../../services';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '../../api/client/apiClient';
+import { useAuthStore } from '../../store';
 import type { Order } from '../../api/types';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month';
@@ -23,9 +26,23 @@ const isInRange = (dateStr: string | undefined, filter: DateFilter) => {
 
 export const OrdersPage = () => {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
-  const { data: orders, isLoading, error } = useOrders();
+  const { user, isAdmin } = useAuthStore();
+  const admin = isAdmin();
+  const customerId = user?.customerId ? Number(user.customerId) : undefined;
 
-  const filteredByDate = (orders ?? []).filter((o) => isInRange(o.localDateTime, dateFilter));
+  // Admin sees all orders; USER sees only their own
+  const allOrdersQuery  = useOrders();
+  const myOrdersQuery   = useQuery({
+    queryKey: ['orders', 'customer', customerId],
+    queryFn: () => apiClient.get<Order[]>(`/api/v1/orders/customer/${customerId}`).then(r => r.data),
+    enabled: !admin && !!customerId,
+  });
+
+  const ordersData  = admin ? allOrdersQuery.data  : myOrdersQuery.data;
+  const isLoading   = admin ? allOrdersQuery.isLoading : myOrdersQuery.isLoading;
+  const error       = admin ? allOrdersQuery.error     : myOrdersQuery.error;
+
+  const filteredByDate = (ordersData ?? []).filter((o) => isInRange(o.localDateTime, dateFilter));
 
   const { items, query, setQuery, page, setPage, totalPages, totalItems, pageSize } =
     usePaginatedData<Order>({
@@ -50,7 +67,9 @@ export const OrdersPage = () => {
     <div className="space-y-5 max-w-7xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Orders</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{orders?.length ?? 0} total orders</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+          {admin ? `${ordersData?.length ?? 0} total orders` : 'Your orders'}
+        </p>
       </div>
 
       {/* Filters row */}
@@ -81,7 +100,7 @@ export const OrdersPage = () => {
             <TableRow>
               <TableHeadCell>Order</TableHeadCell>
               <TableHeadCell>Date</TableHeadCell>
-              <TableHeadCell>Customer</TableHeadCell>
+              {admin && <TableHeadCell>Customer</TableHeadCell>}
               <TableHeadCell>Items</TableHeadCell>
               <TableHeadCell>Status</TableHeadCell>
             </TableRow>
@@ -89,9 +108,9 @@ export const OrdersPage = () => {
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-slate-400 dark:text-slate-500">
+                <TableCell colSpan={admin ? 5 : 4} className="text-center py-10 text-slate-400 dark:text-slate-500">
                   <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-30" aria-hidden="true" />
-                  No orders found
+                  {admin ? 'No orders found' : 'You have no orders yet'}
                 </TableCell>
               </TableRow>
             ) : items.map((order) => (
@@ -102,9 +121,11 @@ export const OrdersPage = () => {
                     ? new Date(order.localDateTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                     : '—'}
                 </TableCell>
-                <TableCell className="font-medium text-slate-700 dark:text-slate-200">
-                  {order.customer?.name ?? <span className="italic text-slate-400">Unknown</span>}
-                </TableCell>
+                {admin && (
+                  <TableCell className="font-medium text-slate-700 dark:text-slate-200">
+                    {order.customer?.name ?? <span className="italic text-slate-400">Unknown</span>}
+                  </TableCell>
+                )}
                 <TableCell>
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300">
                     {order.orderItems?.length ?? 0}

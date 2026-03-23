@@ -14,6 +14,7 @@ import {
   useCheckoutAndCreateOrder,
 } from '../../services/cart/service';
 import { useProcessPayment } from '../../services/payment/service';
+import { useNotificationContext } from '../../contexts/NotificationContext';
 
 const PAYMENT_METHODS = [
   { value: 'CREDIT_CARD',   label: 'Credit Card'   },
@@ -35,15 +36,26 @@ const PaymentModal = ({ orderId, customerId, total, onClose, onSuccess }: Paymen
   const [method, setMethod] = useState('CREDIT_CARD');
   const [result, setResult] = useState<'idle' | 'success' | 'failed'>('idle');
   const processPayment = useProcessPayment();
+  const { addNotification } = useNotificationContext();
 
   const handlePay = async () => {
     try {
       setResult('idle');
       await processPayment.mutateAsync({ orderId, customerId, paymentMethod: method });
       setResult('success');
+      addNotification({
+        title: 'Payment Successful',
+        message: `Order #${orderId} paid — ${total.toFixed(2)} ${method.replace('_', ' ').toLowerCase()}.`,
+        type: 'success',
+      });
       setTimeout(onSuccess, 1800);
     } catch {
       setResult('failed');
+      addNotification({
+        title: 'Payment Failed',
+        message: `Payment for Order #${orderId} could not be processed. Please try again.`,
+        type: 'error',
+      });
     }
   };
 

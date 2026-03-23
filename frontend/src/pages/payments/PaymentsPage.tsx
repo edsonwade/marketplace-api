@@ -7,6 +7,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Alert } from '../../components/ui/Alert';
 import { Spinner } from '../../components/ui/Spinner';
 import { Table, TableHead, TableBody, TableRow, TableHeadCell, TableCell } from '../../components/ui/Table';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '../../api/client/apiClient';
 import {
   usePayments,
   usePaymentMethods,
@@ -14,6 +16,8 @@ import {
   useSetDefaultPaymentMethod,
   useAddPaymentMethod,
 } from '../../services';
+import { useAuthStore } from '../../store';
+import type { Payment } from '../../api/types';
 
 /* ---- Status config ---- */
 type StatusKey = 'COMPLETED' | 'FAILED' | 'PENDING' | 'PROCESSING';
@@ -32,12 +36,36 @@ const PaymentsTab = () => {
   const [formError,   setFormError]   = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
 
-  const { data: payments, isLoading, error } = usePayments();
+  const { user, isAdmin } = useAuthStore();
+  const admin = isAdmin();
+  const customerId = user?.customerId ? Number(user.customerId) : undefined;
+
+  // USER: load their unpaid orders so they can select which to pay
+  const unpaidOrdersQuery = useQuery({
+    queryKey: ['orders', 'customer', customerId, 'unpaid'],
+    queryFn: () => apiClient.get<import('../../api/types').Order[]>(`/api/v1/orders/customer/${customerId}/unpaid`).then(r => r.data),
+    enabled: !admin && !!customerId,
+  });
+  const unpaidOrders = unpaidOrdersQuery.data ?? [];
+
+  // Admin sees all payments; USER sees only their own
+  const allPaymentsQuery = usePayments();
+  const myPaymentsQuery  = useQuery({
+    queryKey: ['payments', 'customer', customerId],
+    queryFn: () => apiClient.get<Payment[]>(`/api/v1/payments/customer/${customerId}`).then(r => r.data),
+    enabled: !admin && !!customerId,
+  });
+
+  const payments  = admin ? allPaymentsQuery.data  : myPaymentsQuery.data;
+  const isLoading = admin ? allPaymentsQuery.isLoading : myPaymentsQuery.isLoading;
+  const error     = admin ? allPaymentsQuery.error     : myPaymentsQuery.error;
+
   const processPayment = useProcessPayment();
 
   const handleProcess = async () => {
-    if (!form.orderId || !form.customerId) {
-      setFormError('Order ID and Customer ID are required');
+    const resolvedCustomerId = admin ? parseInt(form.customerId) : (customerId ?? 0);
+    if (!form.orderId || !resolvedCustomerId) {
+      setFormError('Please select an order to pay');
       return;
     }
     try {
@@ -45,13 +73,14 @@ const PaymentsTab = () => {
       setFormSuccess(false);
       await processPayment.mutateAsync({
         orderId:       parseInt(form.orderId),
-        customerId:    parseInt(form.customerId),
+        customerId:    resolvedCustomerId,
         paymentMethod: form.paymentMethod,
       });
       setFormSuccess(true);
       setForm({ orderId: '', customerId: '', paymentMethod: 'CREDIT_CARD' });
-    } catch {
-      setFormError('Failed to process payment. Please check the order and customer IDs.');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Failed to process payment.';
+      setFormError(msg);
     }
   };
 
@@ -66,24 +95,53 @@ const PaymentsTab = () => {
           <h2 className="text-sm font-semibold text-slate-800">Process New Payment</h2>
         </div>
         <CardBody className="flex flex-wrap gap-4 items-end">
-          <Input
-            label="Order ID"
-            type="number"
-            min={1}
-            value={form.orderId}
-            onChange={(e) => setForm({ ...form, orderId: e.target.value })}
-            className="w-36"
-            placeholder="e.g., 42"
-          />
-          <Input
-            label="Customer ID"
-            type="number"
-            min={1}
-            value={form.customerId}
-            onChange={(e) => setForm({ ...form, customerId: e.target.value })}
-            className="w-36"
-            placeholder="e.g., 7"
-          />
+          {/* USER sees a dropdown of their unpaid orders; ADMIN enters order ID manually */}
+          {admin ? (
+            <Input
+              label="Order ID"
+              type="number"
+              min={1}
+              value={form.orderId}
+              onChange={(e) => setForm({ ...form, orderId: e.target.value })}
+              className="w-36"
+              placeholder="e.g., 42"
+            />
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">
+                Select Order
+              </label>
+              {unpaidOrders.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400 py-2">
+                  No pending orders to pay
+                </p>
+              ) : (
+                <select
+                  value={form.orderId}
+                  onChange={(e) => setForm({ ...form, orderId: e.target.value })}
+                  className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Choose an order --</option>
+                  {unpaidOrders.map(o => (
+                    <option key={o.orderId} value={o.orderId}>
+                      Order #{o.orderId} · {o.orderItems?.length ?? 0} item(s)
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+          {admin && (
+            <Input
+              label="Customer ID"
+              type="number"
+              min={1}
+              value={form.customerId}
+              onChange={(e) => setForm({ ...form, customerId: e.target.value })}
+              className="w-36"
+              placeholder="e.g., 7"
+            />
+          )}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
               Payment Method
@@ -91,7 +149,7 @@ const PaymentsTab = () => {
             <select
               value={form.paymentMethod}
               onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-              className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="CREDIT_CARD">Credit Card</option>
               <option value="DEBIT_CARD">Debit Card</option>
@@ -99,7 +157,11 @@ const PaymentsTab = () => {
               <option value="BANK_TRANSFER">Bank Transfer</option>
             </select>
           </div>
-          <Button onClick={handleProcess} isLoading={processPayment.isPending}>
+          <Button
+            onClick={handleProcess}
+            isLoading={processPayment.isPending}
+            disabled={!admin && unpaidOrders.length === 0}
+          >
             Process Payment
           </Button>
         </CardBody>
@@ -241,7 +303,7 @@ const PaymentMethodsTab = () => {
             <Input label="Customer ID"   type="number" value={addData.customerId}     onChange={(e) => setAddData({ ...addData, customerId: e.target.value })}     className="w-32" />
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Type</label>
-              <select value={addData.methodType} onChange={(e) => setAddData({ ...addData, methodType: e.target.value })} className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select value={addData.methodType} onChange={(e) => setAddData({ ...addData, methodType: e.target.value })} className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="CREDIT_CARD">Credit Card</option>
                 <option value="DEBIT_CARD">Debit Card</option>
                 <option value="PAYPAL">PayPal</option>
@@ -330,14 +392,17 @@ const PaymentMethodsTab = () => {
 /* ================================================================
    PAGE
    ================================================================ */
-const TABS = [
-  { key: 'payments', label: 'Payments',        Icon: CreditCard },
-  { key: 'methods',  label: 'Payment Methods',  Icon: CreditCard },
+const ALL_TABS = [
+  { key: 'payments', label: 'Payments',       Icon: CreditCard, adminOnly: false },
+  { key: 'methods',  label: 'Payment Methods', Icon: CreditCard, adminOnly: true  },
 ] as const;
-type TabKey = typeof TABS[number]['key'];
+type TabKey = typeof ALL_TABS[number]['key'];
 
 export const PaymentsPage = () => {
   const [tab, setTab] = useState<TabKey>('payments');
+  const { isAdmin } = useAuthStore();
+  const admin = isAdmin();
+  const TABS = admin ? ALL_TABS : ALL_TABS.filter(t => !t.adminOnly);
 
   return (
     <div className="space-y-6 max-w-7xl">

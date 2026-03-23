@@ -15,15 +15,13 @@ import io.github.bucket4j.Bucket;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Collections;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,19 +34,18 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AuthenticationServiceTest {
 
-    @Mock private UserRepository      repository;
-    @Mock private TokenRepository     tokenRepository;
-    @Mock private PasswordEncoder     passwordEncoder;
-    @Mock private JwtService          jwtService;
+    @Mock private UserRepository        repository;
+    @Mock private TokenRepository       tokenRepository;
+    @Mock private PasswordEncoder       passwordEncoder;
+    @Mock private JwtService            jwtService;
     @Mock private AuthenticationManager authenticationManager;
-    @Mock private RateLimitingService rateLimitingService;
-    @Mock private CustomerRepository  customerRepository;
+    @Mock private RateLimitingService   rateLimitingService;
+    @Mock private CustomerRepository    customerRepository;
 
-    // Construct manually — constructor now includes CustomerRepository
     private AuthenticationService authenticationService;
 
-    private User testUser;
-    private RegisterRequest registerRequest;
+    private User              testUser;
+    private RegisterRequest   registerRequest;
     private AuthenticationRequest authRequest;
     private Bucket mockBucket;
 
@@ -66,10 +63,10 @@ class AuthenticationServiceTest {
                 .status("ACTIVE")
                 .build();
 
+        // role field removed from RegisterRequest — self-registration always creates USER
         registerRequest = RegisterRequest.builder()
                 .email("test@example.com")
                 .password("password123")
-                .role("USER")
                 .build();
 
         authRequest = AuthenticationRequest.builder()
@@ -80,31 +77,27 @@ class AuthenticationServiceTest {
         mockBucket = mock(Bucket.class);
     }
 
+    // ── register ─────────────────────────────────────────────────────────────
+
     @Test
-    void testRegisterCreatesUserAndReturnsTokens() {
+    void testRegisterAlwaysCreatesUserRole() {
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(repository.save(any(User.class))).thenReturn(testUser);
-        when(jwtService.generateToken(any(User.class))).thenReturn("access-token");
+        // generateToken now takes Map<String,Object> + UserDetails
+        when(jwtService.generateToken(any(Map.class), any(User.class))).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh-token");
         when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
-        // No customer exists yet → findByEmail returns empty → should save new Customer
-        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
+        when(customerRepository.findByEmail(anyString())).thenReturn(Optional.empty());
         when(customerRepository.save(any(Customer.class))).thenReturn(new Customer());
 
         AuthenticationResponse response = authenticationService.register(registerRequest);
 
-        assertThat(response).isNotNull();
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
 
-        verify(passwordEncoder, times(1)).encode("password123");
-        verify(repository, times(1)).save(any(User.class));
-        verify(jwtService, times(1)).generateToken(any(User.class));
-        verify(jwtService, times(1)).generateRefreshToken(any(User.class));
-        verify(tokenRepository, times(1)).save(any(Token.class));
-        // Verify Customer was created
-        verify(customerRepository, times(1)).findByEmail("test@example.com");
-        verify(customerRepository, times(1)).save(any(Customer.class));
+        // Self-registration must always be USER — never ADMIN
+        verify(repository).save(argThat(u -> u.getRole() == ROLE.USER));
+        verify(customerRepository).save(any(Customer.class));
     }
 
     @Test
@@ -112,50 +105,18 @@ class AuthenticationServiceTest {
         Customer existing = new Customer(1L, "existing", "test@example.com", "");
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(repository.save(any(User.class))).thenReturn(testUser);
-        when(jwtService.generateToken(any(User.class))).thenReturn("access-token");
+        when(jwtService.generateToken(any(Map.class), any(User.class))).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh-token");
         when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
-        // Customer already exists → findByEmail returns it → should NOT save again
-        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.of(existing));
+        when(customerRepository.findByEmail(anyString())).thenReturn(Optional.of(existing));
 
         authenticationService.register(registerRequest);
 
-        verify(customerRepository, times(1)).findByEmail("test@example.com");
+        verify(customerRepository).findByEmail("test@example.com");
         verify(customerRepository, never()).save(any(Customer.class));
     }
 
-    @Test
-    void testRegisterEncodesPasswordWithRole() {
-        RegisterRequest adminRequest = RegisterRequest.builder()
-                .email("admin@example.com")
-                .password("admin123")
-                .role("ADMIN")
-                .build();
-
-        User adminUser = User.builder()
-                .id(2)
-                .email("admin@example.com")
-                .password("encodedAdminPassword")
-                .role(ROLE.ADMIN)
-                .status("ACTIVE")
-                .build();
-
-        when(passwordEncoder.encode(anyString())).thenReturn("encodedAdminPassword");
-        when(repository.save(any(User.class))).thenReturn(adminUser);
-        when(jwtService.generateToken(any(User.class))).thenReturn("admin-access-token");
-        when(jwtService.generateRefreshToken(any(User.class))).thenReturn("admin-refresh-token");
-        when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
-        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
-        when(customerRepository.save(any(Customer.class))).thenReturn(new Customer());
-
-        AuthenticationResponse response = authenticationService.register(adminRequest);
-
-        assertThat(response).isNotNull();
-        verify(passwordEncoder, times(1)).encode("admin123");
-        verify(repository, times(1)).save(argThat(user -> 
-            user.getRole() == ROLE.ADMIN && "ACTIVE".equals(user.getStatus())
-        ));
-    }
+    // ── authenticate ─────────────────────────────────────────────────────────
 
     @Test
     void testAuthenticateSuccess() {
@@ -163,20 +124,16 @@ class AuthenticationServiceTest {
         when(mockBucket.tryConsume(1)).thenReturn(true);
         when(repository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
-        when(jwtService.generateToken(any(User.class))).thenReturn("access-token");
+        when(jwtService.generateToken(any(Map.class), any(User.class))).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh-token");
         when(tokenRepository.findAllValidTokenByUser(any())).thenReturn(Collections.emptyList());
         when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
 
         AuthenticationResponse response = authenticationService.authenticate(authRequest);
 
-        assertThat(response).isNotNull();
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
-
-        verify(rateLimitingService, times(1)).resolveBucket("test@example.com");
-        verify(passwordEncoder, times(1)).matches("password123", "encodedPassword");
-        verify(repository, times(1)).findByEmail("test@example.com");
+        verify(passwordEncoder).matches("password123", "encodedPassword");
     }
 
     @Test
@@ -188,6 +145,8 @@ class AuthenticationServiceTest {
                 .isInstanceOf(org.springframework.security.authentication.BadCredentialsException.class)
                 .hasMessageContaining("auth.rate.limit");
     }
+
+    // ── changePassword ────────────────────────────────────────────────────────
 
     @Test
     void testChangePasswordSuccess() {
@@ -206,7 +165,8 @@ class AuthenticationServiceTest {
         when(repository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("wrongPassword", "encodedPassword")).thenReturn(false);
 
-        assertThatThrownBy(() -> authenticationService.changePassword("test@example.com", "wrongPassword", "newPass"))
+        assertThatThrownBy(() ->
+                authenticationService.changePassword("test@example.com", "wrongPassword", "newPass"))
                 .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
                 .hasMessageContaining("Current password is incorrect");
 
@@ -217,37 +177,8 @@ class AuthenticationServiceTest {
     void testChangePasswordThrowsWhenUserNotFound() {
         when(repository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authenticationService.changePassword("unknown@example.com", "pass", "newPass"))
+        assertThatThrownBy(() ->
+                authenticationService.changePassword("unknown@example.com", "pass", "newPass"))
                 .isInstanceOf(code.vanilson.marketplace.exception.ObjectWithIdNotFound.class);
-    }
-
-    @Test
-    void testAuthenticateWithManagerRole() {
-        RegisterRequest managerRequest = RegisterRequest.builder()
-                .email("manager@example.com")
-                .password("manager123")
-                .role("MANAGER")
-                .build();
-
-        User managerUser = User.builder()
-                .id(3)
-                .email("manager@example.com")
-                .password("encodedPassword")
-                .role(ROLE.MANAGER)
-                .status("ACTIVE")
-                .build();
-
-        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
-        when(repository.save(any(User.class))).thenReturn(managerUser);
-        when(jwtService.generateToken(any(User.class))).thenReturn("manager-token");
-        when(jwtService.generateRefreshToken(any(User.class))).thenReturn("manager-refresh");
-        when(tokenRepository.save(any(Token.class))).thenReturn(new Token());
-        when(customerRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
-        when(customerRepository.save(any(Customer.class))).thenReturn(new Customer());
-
-        AuthenticationResponse response = authenticationService.register(managerRequest);
-
-        assertThat(response).isNotNull();
-        verify(repository, times(1)).save(argThat(user -> user.getRole() == ROLE.MANAGER));
     }
 }

@@ -239,6 +239,19 @@ class CartServiceTest {
                 .isInstanceOf(ObjectWithIdNotFound.class);
     }
 
+    @Test
+    void testUpdateCartItemQuantityThrowsWhenExceedsStock() {
+        product.setQuantity(3); // only 3 available
+        cart.getItems().add(cartItem);
+        when(cartRepository.findByCustomerIdAndStatus(1L, "ACTIVE")).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartCartIdAndProductId(1L, 1L)).thenReturn(Optional.of(cartItem));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> cartService.updateCartItemQuantity(1L, 1L, 10))
+                .isInstanceOf(code.vanilson.marketplace.exception.BadRequestException.class)
+                .hasMessageContaining("Not enough stock");
+    }
+
     // ── removeItem ────────────────────────────────────────────────────────────
 
     @Test

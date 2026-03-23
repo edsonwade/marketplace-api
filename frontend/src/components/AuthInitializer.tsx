@@ -2,26 +2,26 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { cookies } from '../utils/cookies';
 import { getAccessToken, setAccessToken } from '../api/client/apiClient';
 import apiClient from '../api/client/apiClient';
+import { decodeToken } from '../utils/jwt';
 import { useAuthStore } from '../store';
 import { FullPageSpinner } from '../components/ui/Spinner';
 
 /**
  * Runs once on app mount.
- *
  * 1. No refresh_token cookie → render immediately (guest)
- * 2. Has refresh_token but no access token → exchange it via /auth/refresh-token
- * 3. Then call /customers/me → backend auto-creates Customer if missing
- * 4. Only on 401 (token truly invalid) → clear auth and redirect to login
+ * 2. Restores access token via /auth/refresh-token if needed
+ * 3. Decodes access token to get role
+ * 4. Calls /customers/me to restore user profile
+ * 5. Only on 401 (token invalid) → clears auth
  */
 export const AuthInitializer = ({ children }: { children: ReactNode }) => {
   const [ready, setReady] = useState(false);
-  const { setAuth, setUser, clearAuth } = useAuthStore();
+  const { setAuth, setUser, setRole, clearAuth } = useAuthStore();
 
   useEffect(() => {
     const init = async () => {
       const refreshToken = cookies.get('refresh_token');
 
-      // No cookie — guest, render immediately
       if (!refreshToken) {
         setReady(true);
         return;
@@ -36,22 +36,27 @@ export const AuthInitializer = ({ children }: { children: ReactNode }) => {
           cookies.set('refresh_token', refresh_token, 7);
         }
 
-        // /customers/me — backend auto-creates Customer if one doesn't exist yet
+        // Decode access token to get role
+        const token = getAccessToken();
+        const payload = token ? decodeToken(token) : null;
+        const role = payload?.role ?? 'USER';
+
+        // Fetch customer profile — backend auto-creates if missing
         const meRes = await apiClient.get('/api/v1/customers/me');
         const customer = meRes.data;
-        setAuth(customer);
+
+        setAuth(customer, role);
         setUser(customer);
+        setRole(role);
 
       } catch (err: any) {
         const status = err?.response?.status;
         if (status === 401 || !status) {
-          // Refresh token expired/invalid → full logout
           setAccessToken(null);
           cookies.remove('refresh_token');
           sessionStorage.removeItem('_at');
           clearAuth();
         }
-        // Other errors (network, 500) → keep auth, app will retry on next request
       } finally {
         setReady(true);
       }

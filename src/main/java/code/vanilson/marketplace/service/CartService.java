@@ -2,7 +2,6 @@ package code.vanilson.marketplace.service;
 
 import code.vanilson.marketplace.dto.CartDto;
 import code.vanilson.marketplace.dto.CartItemDto;
-import code.vanilson.marketplace.dto.CustomerDto;
 import code.vanilson.marketplace.dto.OrderDto;
 import code.vanilson.marketplace.exception.ObjectWithIdNotFound;
 import code.vanilson.marketplace.mapper.CartMapper;
@@ -127,6 +126,8 @@ public class CartService {
             logger.info("Added new cart item to cart: {}", cart.getCartId());
         }
 
+        // Always recalculate before saving — covers both new and updated items
+        cart.recalculateTotal();
         cartRepository.save(cart);
         return CartMapper.toCartDto(cart);
     }
@@ -146,6 +147,14 @@ public class CartService {
             cartItemRepository.delete(cartItem);
             logger.info("Removed cart item from cart: {}", cartItem.getCartItemId());
         } else {
+            // Verify new quantity does not exceed available stock
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ObjectWithIdNotFound("Product not found: " + productId));
+            int available = product.getQuantity() != null ? product.getQuantity() : 0;
+            if (quantity > available) {
+                throw new BadRequestException("Not enough stock for '" + product.getName() +
+                        "'. Available: " + available);
+            }
             cartItem.setQuantity(quantity);
             cartItemRepository.save(cartItem);
             logger.info("Updated cart item quantity: {}", cartItem.getCartItemId());

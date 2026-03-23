@@ -5,31 +5,43 @@ import { cookies } from '../utils/cookies';
 interface AuthState {
   isAuthenticated: boolean;
   user: Customer | null;
-  setAuth: (user?: Customer) => void;
+  role: string | null;  // 'USER' | 'ADMIN' | 'MANAGER'
+  setAuth: (user?: Customer, role?: string) => void;
   setUser: (user: Customer) => void;
+  setRole: (role: string) => void;
   clearAuth: () => void;
+  isAdmin: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>()((set) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
   isAuthenticated: !!cookies.get('refresh_token'),
   user: null,
+  role: null,
 
-  setAuth: (user) =>
+  setAuth: (user, role) =>
     set({
       isAuthenticated: true,
       user: user || null,
+      role: role || null,
     }),
 
   setUser: (user) =>
-    set({
-      user,
-    }),
+    set({ user }),
+
+  setRole: (role) =>
+    set({ role }),
 
   clearAuth: () =>
     set({
       isAuthenticated: false,
       user: null,
+      role: null,
     }),
+
+  isAdmin: () => {
+    const r = get().role;
+    return r === 'ADMIN' || r === 'MANAGER';
+  },
 }));
 
 interface CartState {

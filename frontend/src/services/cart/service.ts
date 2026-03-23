@@ -107,13 +107,23 @@ export const useClearCart = () => {
   });
 };
 
+// Returns the total number of items in the active backend cart — used by Header badge
+export const useBackendCartCount = (customerId: number | undefined): number => {
+  const { data: cart } = useBackendCart(customerId);
+  if (!cart?.items) return 0;
+  return cart.items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+};
+
 export const useCheckoutAndCreateOrder = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (customerId: number) => cartApiService.checkoutAndCreateOrder(customerId),
     onSuccess: (_, customerId) => {
       qc.invalidateQueries({ queryKey: ['cart', 'customer', customerId] });
+      // Invalidate all orders queries — both admin global and user-specific
       qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['orders', 'customer', customerId] });
+      qc.invalidateQueries({ queryKey: ['orders', 'customer', customerId, 'unpaid'] });
     },
   });
 };

@@ -180,4 +180,42 @@ class OrderServiceImplTest {
         verify(orderRepositoryMock).findById(1L);
     }
 
+    @Test
+    @DisplayName("Find Orders By Customer ID - Success")
+    void testFindOrdersByCustomerId() {
+        when(orderRepositoryMock.findByCustomerIdWithDetails(1L)).thenReturn(List.of(order));
+        List<OrderDto> result = currentInstance.findOrdersByCustomerId(1L);
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(orderRepositoryMock).findByCustomerIdWithDetails(1L);
+    }
+
+    @Test
+    @DisplayName("Find Orders By Customer ID - Empty")
+    void testFindOrdersByCustomerIdEmpty() {
+        when(orderRepositoryMock.findByCustomerIdWithDetails(99L)).thenReturn(List.of());
+        List<OrderDto> result = currentInstance.findOrdersByCustomerId(99L);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Find Unpaid Orders By Customer ID - returns orders without completed payment")
+    void testFindUnpaidOrdersByCustomerId() {
+        when(orderRepositoryMock.findUnpaidByCustomerId(1L)).thenReturn(List.of(order));
+        List<OrderDto> result = currentInstance.findUnpaidOrdersByCustomerId(1L);
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(orderRepositoryMock).findUnpaidByCustomerId(1L);
+    }
+
+    @Test
+    @DisplayName("Find Unpaid Orders By Customer ID - returns empty when all paid")
+    void testFindUnpaidOrdersByCustomerIdEmpty() {
+        when(orderRepositoryMock.findUnpaidByCustomerId(1L)).thenReturn(List.of());
+        List<OrderDto> result = currentInstance.findUnpaidOrdersByCustomerId(1L);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
 }

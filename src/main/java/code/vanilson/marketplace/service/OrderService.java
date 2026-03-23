@@ -46,4 +46,8 @@ public interface OrderService {
      * @return True if the operation was successful.
      */
     boolean deleteOrderById(long id);
+
+    List<OrderDto> findOrdersByCustomerId(Long customerId);
+
+    List<OrderDto> findUnpaidOrdersByCustomerId(Long customerId);
 }

@@ -6,7 +6,7 @@ export interface AuthenticationRequest {
 export interface RegisterRequest {
   email: string;
   password: string;
-  role?: string;
+  // role removed — all self-registrations are USER
 }
 
 export interface AuthenticationResponse {
